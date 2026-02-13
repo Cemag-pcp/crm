@@ -2130,8 +2130,13 @@
 
       // Executar loadCatalog e fetch de quote details em PARALELO
       // Estas operações são independentes e podem rodar simultaneamente
+      const profileId = getProfileId();
+      const allowAll = profileId === 1;
+      const userLists = allowAll ? [] : getAllowedPriceLists();
+      setAllowedPriceLists(userLists);
+
       const [catalogResult, quoteDetailResult] = await Promise.allSettled([
-        loadCatalog(),
+        loadCatalog(userLists, allowAll),
         fetch(`/api/ploomes/quote-detail/?quote_id=${quoteId}`)
           .then(resp => {
             console.log("Resposta /api/ploomes/quote-detail/ - Status:", resp.status, resp.statusText);

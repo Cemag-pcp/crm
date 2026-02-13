@@ -1,4 +1,5 @@
-﻿{% load static %}
+{% load static %}
+{% if request.META.HTTP_HX_REQUEST != "true" %}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -12,7 +13,15 @@
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark crm-navbar">
     <div class="container">
-        <a class="navbar-brand crm-brand" href="{% url 'home' %}">
+        <a
+            class="navbar-brand crm-brand"
+            href="{% url 'home' %}"
+            hx-get="{% url 'home' %}"
+            hx-target="#app-main"
+            hx-select="#app-main"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+        >
             CEMAG CRM
             <span class="brand-sub">Cotações</span>
         </a>
@@ -22,17 +31,17 @@
         <div class="collapse navbar-collapse" id="mainNavbar">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 <li class="nav-item">
-                    <a class="nav-link {% block nav_home_class %}{% endblock %}" href="{% url 'home' %}">Início</a>
+                    <a class="nav-link {% block nav_home_class %}{% endblock %}" href="{% url 'home' %}" hx-get="{% url 'home' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Início</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% block nav_create_class %}{% endblock %}" href="{% url 'create-quote' %}">Nova Cotação</a>
+                    <a class="nav-link {% block nav_create_class %}{% endblock %}" href="{% url 'create-quote' %}" data-full-nav-loading="true">Nova Cotação</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% block nav_consult_class %}{% endblock %}" href="{% url 'consult-price' %}">Consultar Preços</a>
+                    <a class="nav-link {% block nav_consult_class %}{% endblock %}" href="{% url 'consult-price' %}" hx-get="{% url 'consult-price' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Consultar Preços</a>
                 </li>
                 {% if request.session.profile_id == 1 %}
                 <li class="nav-item">
-                    <a class="nav-link {% block nav_manage_class %}{% endblock %}" href="{% url 'manage-users' %}">Gerenciar acessos</a>
+                    <a class="nav-link {% block nav_manage_class %}{% endblock %}" href="{% url 'manage-users' %}" hx-get="{% url 'manage-users' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Gerenciar acessos</a>
                 </li>
                 {% endif %}
                 <li class="nav-item dropdown">
@@ -56,18 +65,24 @@
             <div class="d-flex align-items-center gap-2 ms-auto">
                 <span class="navbar-text small">Olá, {{ user_name }}</span>
                 {% block nav_actions %}
-                <a href="{% url 'home' %}" class="btn btn-outline-light btn-sm">Início</a>
+                <a href="{% url 'home' %}" class="btn btn-outline-light btn-sm" hx-get="{% url 'home' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Início</a>
                 <a href="{% url 'logout' %}" class="btn btn-outline-light btn-sm">Sair</a>
                 {% endblock %}
             </div>
         </div>
     </div>
 </nav>
+{% endif %}
 
-<main class="{% block main_class %}container py-4{% endblock %}">
+<main id="app-main" class="{% block main_class %}container py-4{% endblock %}">
     {% block content %}{% endblock %}
+    {% block body_end %}{% endblock %}
 </main>
-
+{% if request.META.HTTP_HX_REQUEST != "true" %}
+<div id="pageTransitionLoader" aria-hidden="true">
+    <div class="loader-backdrop"></div>
+    <div class="loader-bar"></div>
+</div>
 <div class="modal fade" id="companyCreateModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content bg-dark text-light border border-secondary">
@@ -190,12 +205,94 @@
     </div>
 </div>
 
-{% block body_end %}{% endblock %}
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 <script src="{% static 'js/company_modal.js' %}"></script>
 <script src="{% static 'js/contact_modal.js' %}"></script>
 <script src="{% static 'js/nav_prefetch.js' %}"></script>
+<script>
+  (function () {
+    function isMainSwapEvent(evt) {
+      var detailTarget = evt && evt.detail ? evt.detail.target : null;
+      if (detailTarget && detailTarget.id === "app-main") return true;
+
+      var detailElt = evt && evt.detail ? evt.detail.elt : null;
+      if (detailElt && detailElt.matches && detailElt.matches(".crm-navbar .nav-link[hx-get]")) return true;
+
+      return false;
+    }
+
+    function showPageLoader() {
+      document.body.classList.add("page-loading");
+    }
+
+    function hidePageLoader() {
+      window.setTimeout(function () {
+        document.body.classList.remove("page-loading");
+      }, 120);
+    }
+
+    function setActiveByHref(href) {
+      if (!href) return;
+      document.querySelectorAll(".crm-navbar .nav-link").forEach(function (link) {
+        link.classList.toggle("active", link.getAttribute("href") === href);
+      });
+    }
+
+    function syncActiveNav() {
+      setActiveByHref(window.location.pathname);
+    }
+
+    document.querySelectorAll(".crm-navbar .nav-link[hx-get]").forEach(function (link) {
+      link.addEventListener("click", function () {
+        setActiveByHref(link.getAttribute("href"));
+      });
+    });
+
+    document.querySelectorAll(".crm-navbar a[data-full-nav-loading='true']").forEach(function (link) {
+      link.addEventListener("click", function () {
+        showPageLoader();
+      });
+    });
+
+    document.body.addEventListener("htmx:beforeRequest", function (evt) {
+      if (isMainSwapEvent(evt)) {
+        showPageLoader();
+      }
+      var el = evt && evt.detail ? evt.detail.elt : null;
+      if (el && el.matches && el.matches(".crm-navbar .nav-link")) {
+        setActiveByHref(el.getAttribute("href"));
+      }
+    });
+
+    document.body.addEventListener("htmx:afterRequest", function (evt) {
+      if (isMainSwapEvent(evt)) {
+        hidePageLoader();
+      }
+    });
+
+    document.body.addEventListener("htmx:responseError", function (evt) {
+      if (isMainSwapEvent(evt)) {
+        hidePageLoader();
+      }
+    });
+
+    document.body.addEventListener("htmx:sendError", function (evt) {
+      if (isMainSwapEvent(evt)) {
+        hidePageLoader();
+      }
+    });
+
+    document.body.addEventListener("htmx:afterSwap", function (evt) {
+      if (evt.target && evt.target.id === "app-main") {
+        syncActiveNav();
+      }
+    });
+
+    syncActiveNav();
+  })();
+</script>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>
+{% endif %}

@@ -1,4 +1,9 @@
 (() => {
+  if (window.__homeScrollHandler) {
+    window.removeEventListener("scroll", window.__homeScrollHandler);
+    window.__homeScrollHandler = null;
+  }
+
   const elements = {
     cards: document.getElementById("cardsContainer"),
     alert: document.getElementById("alertArea"),
@@ -116,6 +121,7 @@
   let isLoading = false;
 
   async function fetchQuotes(reset = false) {
+    if (!elements.login || !elements.cards) return;
     if (isLoading) return;
     const idLogin = elements.login.value.trim();
     if (!idLogin) {
@@ -168,6 +174,7 @@
   }
 
   function renderMetrics(deals) {
+    if (!elements.openDeals) return;
 
     const total = deals.length;
     const totalAmount = deals.reduce((sum, d) => sum + (d.Amount || 0), 0);
@@ -200,6 +207,7 @@
   }
 
   function renderCards(deals) {
+    if (!elements.cards) return;
     elements.cards.innerHTML = "";
     if (!deals.length) {
       elements.cards.innerHTML = '<div class="col-12 text-center text-secondary">Nenhum resultado.</div>';
@@ -587,13 +595,18 @@
   }
 
   function clearAlert() {
+    if (!elements.alert) return;
     elements.alert.innerHTML = "";
   }
 
   function setLoading(isLoading) {
-    elements.loadBtn.disabled = isLoading;
-    elements.refreshBtn.disabled = isLoading;
-    elements.loadBtn.textContent = isLoading ? "Buscando..." : "Buscar";
+    if (elements.loadBtn) {
+      elements.loadBtn.disabled = isLoading;
+      elements.loadBtn.textContent = isLoading ? "Buscando..." : "Buscar";
+    }
+    if (elements.refreshBtn) {
+      elements.refreshBtn.disabled = isLoading;
+    }
     if (elements.spinner) {
       elements.spinner.classList.toggle("d-none", !isLoading);
     }
@@ -610,17 +623,26 @@
   elements.loadBtn?.addEventListener("click", resetAndFetch);
   elements.refreshBtn?.addEventListener("click", resetAndFetch);
 
-  window.addEventListener("scroll", () => {
+  const handleScroll = () => {
     const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
     if (nearBottom && hasMore && !isLoading) {
       fetchQuotes(false);
     }
-  });
+  };
+  window.__homeScrollHandler = handleScroll;
+  window.addEventListener("scroll", handleScroll);
 
-  window.addEventListener("DOMContentLoaded", () => {
+  function initHomePage() {
+    if (!elements.login || !elements.loadBtn || !elements.cards) return;
     fetchDeliveryDeadline(); // nao bloqueia renderizacao do restante da pagina
     if (elements.login && elements.login.value) {
       resetAndFetch();
     }
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initHomePage, { once: true });
+  } else {
+    initHomePage();
+  }
 })();

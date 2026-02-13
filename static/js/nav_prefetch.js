@@ -42,7 +42,7 @@
 
     if ("requestIdleCallback" in window && links.length) {
       requestIdleCallback(() => {
-        links.slice(0, 2).forEach((link) => {
+        links.forEach((link) => {
           const href = link.getAttribute("href");
           if (isPrefetchable(href)) prefetch(href);
         });
