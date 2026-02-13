@@ -245,14 +245,12 @@
         </div>
     </div>
 </div>
-{% endblock %}
-{% block extra_scripts %}
 <script>
     // Flag para identificar modo "consultar preço"
     window.isConsultMode = true;
     window.isRevision = false;
 </script>
-<script src="{% static 'js/alerts.js' %}"></script>
-<script src="{% static 'js/create_quote.js' %}"></script>
+<script defer src="{% static 'js/alerts.js' %}"></script>
+<script defer src="{% static 'js/create_quote.js' %}"></script>
 {% endblock %}
 
