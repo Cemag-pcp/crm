@@ -205,15 +205,15 @@
 <!-- Modal para confirmar perda da proposta -->
 <div class="modal fade" id="loseDealModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
-        <div class="modal-content bg-dark text-light">
-            <div class="modal-header border-danger">
+        <div class="modal-content">
+            <div class="modal-header" style="border-bottom: 1px solid #e2e8f0;">
                 <h5 class="modal-title">
-                    <span class="text-danger">×</span> Confirmar perda da proposta
+                    <span style="color: #ff8a2e;">⚠</span> Confirmar perda da proposta
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-3">Deseja confirmar que esta proposta foi <strong class="text-danger">perdida</strong>?</p>
+                <p class="mb-3">Deseja confirmar que esta proposta foi <strong style="color: #ff8a2e;">perdida</strong>?</p>
                 <div class="mb-3">
                     <label for="loseDealReasonSelect" class="form-label">Motivo da perda</label>
                     <select id="loseDealReasonSelect" class="form-select">
@@ -222,9 +222,9 @@
                     <div id="loseDealReasonEmpty" class="text-secondary small mt-2 d-none">Nenhum motivo encontrado.</div>
                 </div>
             </div>
-            <div class="modal-footer border-danger">
-                <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="loseDealConfirm">Confirmar perda</button>
+            <div class="modal-footer" style="border-top: 1px solid #e2e8f0;">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn" id="loseDealConfirm" style="background-color: #ff8a2e; border-color: #ff8a2e; color: #fff;">Confirmar perda</button>
             </div>
         </div>
     </div>

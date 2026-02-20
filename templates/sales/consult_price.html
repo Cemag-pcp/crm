@@ -121,16 +121,18 @@
     <!-- Modal de filtros adicionais -->
     <div class="modal fade" id="filtrosModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="false">
         <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content bg-dark text-light border border-secondary">
-                <div class="modal-header border-secondary">
-                    <h5 class="modal-title">Filtros adicionais</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            <div class="modal-content" style="border: 1px solid #e2e8f0; border-radius: 16px;">
+                <div class="modal-header" style="border-bottom: 1px solid #e2e8f0;">
+                    <h5 class="modal-title" style="color: #0f172a;">
+                        <span style="color: #4f46e5;">⚙</span> Filtros adicionais
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     <div id="filtrosModalBody" class="row g-3"></div>
                 </div>
-                <div class="modal-footer border-secondary">
-                    <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Fechar</button>
+                <div class="modal-footer" style="border-top: 1px solid #e2e8f0;">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
         </div>

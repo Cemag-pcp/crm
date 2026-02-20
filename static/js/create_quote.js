@@ -1466,7 +1466,11 @@
         }
         const finalPrice = parsePrice(finalInput.value);
 
-        await addToCart({
+        const originalLabel = addBtn.innerHTML;
+        addBtn.disabled = true;
+        addBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        try {
+          await addToCart({
           product_code: code,
           description: meta.nome || desc,
           list_name: listName || "",
@@ -1478,6 +1482,10 @@
           favorite: false,
           quantity: 1,
         });
+        } finally {
+          addBtn.disabled = false;
+          addBtn.innerHTML = originalLabel;
+        }
       });
 
       toggleFavorite.addEventListener("change", (event) => {
@@ -1763,8 +1771,16 @@
       });
 
       removeBtn.addEventListener("click", async () => {
-        await deleteCartItem(item.id);
-        await fetchCartItems();
+        const originalLabel = removeBtn.innerHTML;
+        removeBtn.disabled = true;
+        removeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        try {
+          await deleteCartItem(item.id);
+          await fetchCartItems();
+        } finally {
+          removeBtn.disabled = false;
+          removeBtn.innerHTML = originalLabel;
+        }
       });
 
       cartTableBody.appendChild(tr);
@@ -1928,7 +1944,17 @@
   }
 
   if (cartFloatingBtn) {
-    cartFloatingBtn.addEventListener("click", () => fetchCartItems());
+    cartFloatingBtn.addEventListener("click", async () => {
+      const originalLabel = cartFloatingBtn.innerHTML;
+      cartFloatingBtn.disabled = true;
+      cartFloatingBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+      try {
+        await fetchCartItems();
+      } finally {
+        cartFloatingBtn.disabled = false;
+        cartFloatingBtn.innerHTML = originalLabel;
+      }
+    });
   }
   if (confirmCartBtn) {
     confirmCartBtn.addEventListener("click", async () => {
@@ -1948,6 +1974,9 @@
     clearCartBtn.addEventListener("click", async () => {
       const confirmed = window.confirm("Deseja limpar todos os itens do carrinho?");
       if (!confirmed) return;
+      const originalLabel = clearCartBtn.innerHTML;
+      clearCartBtn.disabled = true;
+      clearCartBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
       try {
         await clearCartItems();
         await fetchCartItems();
@@ -1956,6 +1985,9 @@
         showToast("Carrinho limpo.", 'success');
       } catch (err) {
         showToast(`Falha ao limpar carrinho: ${err.message}`, "danger");
+      } finally {
+        clearCartBtn.disabled = false;
+        clearCartBtn.innerHTML = originalLabel;
       }
     });
   }
