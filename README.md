@@ -73,3 +73,4 @@ curl -Method POST http://localhost:8000/api/vendors/sync/ -Body @{limit=50}
 - Para usar Postgres/MySQL, instale o driver correspondente (`psycopg2-binary`, `mysqlclient`) e ajuste `DB_ENGINE` e dados de conexão.
 "# crm" 
 # repvendas
+# repvendas
