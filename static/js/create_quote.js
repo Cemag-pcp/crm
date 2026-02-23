@@ -1176,8 +1176,10 @@
       col.className = "col";
       col.innerHTML = `
         <div class="card h-100 bg-dark border border-secondary-subtle catalog-card text-light select-categoria" data-value="${opt}">
-          <div class="catalog-photo-wrapper ratio ratio-16x9 mb-2">
-            <img class="catalog-photo" src="${buildLocalPhotoPath("categoria", opt) || placeholderCard}" alt="${opt}" loading="lazy" onerror="this.src='${placeholderCard}'">
+          <div class="ratio ratio-16x9 mb-2">
+            <div class="d-flex align-items-center justify-content-center text-center px-3 rounded-top" style="background: linear-gradient(135deg, rgba(148,163,184,.2), rgba(71,85,105,.35));">
+              <span class="fw-semibold fs-5">${opt}</span>
+            </div>
           </div>
           <div class="card-body py-2">
             <div class="d-flex align-items-center justify-content-between">
