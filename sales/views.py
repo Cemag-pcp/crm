@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, date
 
 from .models import (
     CartItem,
+    ConsultaPrecosLog,
     FavoriteItem,
     PortalUser,
     PriceList,
@@ -142,6 +143,19 @@ def consult_price(request):
     price_lists = request.session.get("price_lists") or []
     if not price_lists and request.session.get("price_list"):
         price_lists = [request.session.get("price_list")]
+
+    from django.utils import timezone
+    cooldown_key = "consulta_preco_last_log"
+    cooldown_seconds = 300  # 5 minutos
+    last_log = request.session.get(cooldown_key)
+    now = timezone.now()
+    if not last_log or (now - datetime.fromisoformat(last_log)).total_seconds() > cooldown_seconds:
+        ConsultaPrecosLog.objects.create(
+            owner_id=request.session["owner_id"],
+            user_name=request.session.get("user_name", ""),
+        )
+        request.session[cooldown_key] = now.isoformat()
+
     context = {
         "owner_id": request.session.get("owner_id"),
         "user_name": request.session.get("user_name"),
@@ -151,6 +165,77 @@ def consult_price(request):
         "is_consult_mode": True,
     }
     return render(request, "sales/consult_price.html", context)
+
+
+def _get_drive_service():
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+    info = json.loads(settings.GOOGLE_DRIVE_CREDENTIALS_JSON)
+    creds = service_account.Credentials.from_service_account_info(
+        info,
+        scopes=["https://www.googleapis.com/auth/drive.readonly"],
+    )
+    return build("drive", "v3", credentials=creds)
+
+
+@require_GET
+def material(request):
+    if not request.session.get("owner_id"):
+        return redirect("login")
+    context = {
+        "owner_id": request.session.get("owner_id"),
+        "user_name": request.session.get("user_name"),
+        "profile_id": request.session.get("profile_id"),
+        "root_folder_id": settings.GOOGLE_DRIVE_ROOT_FOLDER_ID,
+    }
+    return render(request, "sales/material.html", context)
+
+
+@require_GET
+def drive_files(request):
+    if not request.session.get("owner_id"):
+        return JsonResponse({"detail": "Não autenticado."}, status=401)
+
+    folder_id = request.GET.get("folder_id") or settings.GOOGLE_DRIVE_ROOT_FOLDER_ID
+    if not folder_id:
+        return JsonResponse({"detail": "Pasta raiz não configurada."}, status=500)
+
+    root_id = settings.GOOGLE_DRIVE_ROOT_FOLDER_ID
+    is_root = folder_id == root_id
+
+    try:
+        service = _get_drive_service()
+        query = f"'{folder_id}' in parents and trashed = false"
+
+        fields = "files(id, name, mimeType, webViewLink, modifiedTime, size, shortcutDetails)"
+
+        if is_root:
+            # Shared Drive: lista o conteúdo do drive raiz
+            result = service.files().list(
+                q=query,
+                fields=fields,
+                orderBy="folder,name",
+                pageSize=200,
+                includeItemsFromAllDrives=True,
+                supportsAllDrives=True,
+                corpora="drive",
+                driveId=root_id,
+            ).execute()
+        else:
+            result = service.files().list(
+                q=query,
+                fields=fields,
+                orderBy="folder,name",
+                pageSize=200,
+                includeItemsFromAllDrives=True,
+                supportsAllDrives=True,
+            ).execute()
+
+        files = result.get("files", [])
+    except Exception as exc:
+        return JsonResponse({"detail": str(exc)}, status=502)
+
+    return JsonResponse({"files": files})
 
 
 @csrf_exempt

@@ -9,3 +9,5 @@ venv/
 
 # Django static collect
 staticfiles/
+
+credentials.json

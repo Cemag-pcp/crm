@@ -1,0 +1,221 @@
+{% extends "sales/base.html" %}
+{% load static %}
+
+{% block title %}Material | CEMAG CRM{% endblock %}
+{% block nav_material_class %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0">Material</h4>
+</div>
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb" id="breadcrumb">
+        <li class="breadcrumb-item active">Início</li>
+    </ol>
+</nav>
+
+<!-- File list -->
+<div id="drive-container">
+    <div class="d-flex justify-content-center py-5">
+        <div class="spinner-border text-secondary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+    const ROOT_FOLDER_ID = "{{ root_folder_id }}";
+
+    // Stack de navegação: [{id, name}]
+    const stack = [{ id: ROOT_FOLDER_ID, name: "Início" }];
+
+    // Cache de resultados por folder_id
+    const cache = new Map();
+
+    const FOLDER_MIME = "application/vnd.google-apps.folder";
+    const SHORTCUT_MIME = "application/vnd.google-apps.shortcut";
+
+    const MIME_ICONS = {
+        "application/vnd.google-apps.folder": "📁",
+        "application/vnd.google-apps.shortcut": "📁",
+        "application/vnd.google-apps.document": "📝",
+        "application/vnd.google-apps.spreadsheet": "📊",
+        "application/vnd.google-apps.presentation": "📽️",
+        "application/pdf": "📄",
+        "image/jpeg": "🖼️",
+        "image/png": "🖼️",
+        "video/mp4": "🎬",
+    };
+
+    function iconFor(file) {
+        if (file.mimeType === SHORTCUT_MIME && file.shortcutDetails) {
+            return MIME_ICONS[file.shortcutDetails.targetMimeType] || "📎";
+        }
+        return MIME_ICONS[file.mimeType] || "📎";
+    }
+
+    function effectiveMime(file) {
+        if (file.mimeType === SHORTCUT_MIME && file.shortcutDetails) {
+            return file.shortcutDetails.targetMimeType;
+        }
+        return file.mimeType;
+    }
+
+    function effectiveId(file) {
+        if (file.mimeType === SHORTCUT_MIME && file.shortcutDetails) {
+            return file.shortcutDetails.targetId;
+        }
+        return file.id;
+    }
+
+    function formatSize(bytes) {
+        if (!bytes) return "";
+        const n = parseInt(bytes, 10);
+        if (n < 1024) return n + " B";
+        if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+        return (n / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function formatDate(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        return d.toLocaleDateString("pt-BR");
+    }
+
+    function renderBreadcrumb() {
+        const ol = document.getElementById("breadcrumb");
+        ol.innerHTML = "";
+        stack.forEach(function (item, idx) {
+            const li = document.createElement("li");
+            const isLast = idx === stack.length - 1;
+            li.className = "breadcrumb-item" + (isLast ? " active" : "");
+            if (isLast) {
+                li.textContent = item.name;
+            } else {
+                const a = document.createElement("a");
+                a.href = "#";
+                a.className = "text-decoration-none";
+                a.textContent = item.name;
+                a.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    // Volta até esse ponto
+                    stack.splice(idx + 1);
+                    loadFolder(item.id);
+                });
+                li.appendChild(a);
+            }
+            ol.appendChild(li);
+        });
+    }
+
+    function loadFolder(folderId) {
+        const container = document.getElementById("drive-container");
+        renderBreadcrumb();
+
+        if (cache.has(folderId)) {
+            renderFiles(cache.get(folderId));
+            return;
+        }
+
+        container.innerHTML = '<div class="d-flex justify-content-center py-5"><div class="spinner-border text-secondary" role="status"><span class="visually-hidden">Carregando...</span></div></div>';
+
+        fetch("/api/drive/files/?folder_id=" + encodeURIComponent(folderId))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.detail) {
+                    container.innerHTML = '<div class="alert alert-danger">' + data.detail + '</div>';
+                    return;
+                }
+                cache.set(folderId, data.files);
+                renderFiles(data.files);
+            })
+            .catch(function (err) {
+                container.innerHTML = '<div class="alert alert-danger">Erro ao carregar arquivos.</div>';
+            });
+    }
+
+    function renderFiles(files) {
+        const container = document.getElementById("drive-container");
+
+        if (!files.length) {
+            container.innerHTML = '<p class="text-muted">Esta pasta está vazia.</p>';
+            return;
+        }
+
+        const table = document.createElement("table");
+        table.className = "table table-hover align-middle";
+        table.innerHTML = `
+            <thead class="table-dark">
+                <tr>
+                    <th>Nome</th>
+                    <th class="d-none d-md-table-cell">Modificado</th>
+                    <th class="d-none d-md-table-cell">Tamanho</th>
+                    <th></th>
+                </tr>
+            </thead>
+        `;
+        const tbody = document.createElement("tbody");
+
+        files.forEach(function (file) {
+            const mime = effectiveMime(file);
+            const navId = effectiveId(file);
+            const isFolder = mime === FOLDER_MIME;
+            const tr = document.createElement("tr");
+            tr.style.cursor = isFolder ? "pointer" : "default";
+
+            const nameTd = document.createElement("td");
+            nameTd.innerHTML = '<span style="font-size:1.2em;margin-right:.5em;">' + iconFor(file) + '</span>' + escapeHtml(file.name);
+            tr.appendChild(nameTd);
+
+            const dateTd = document.createElement("td");
+            dateTd.className = "d-none d-md-table-cell text-muted small";
+            dateTd.textContent = formatDate(file.modifiedTime);
+            tr.appendChild(dateTd);
+
+            const sizeTd = document.createElement("td");
+            sizeTd.className = "d-none d-md-table-cell text-muted small";
+            sizeTd.textContent = isFolder ? "" : formatSize(file.size);
+            tr.appendChild(sizeTd);
+
+            const actionTd = document.createElement("td");
+            actionTd.className = "text-end";
+            if (!isFolder && file.webViewLink) {
+                const btn = document.createElement("a");
+                btn.href = file.webViewLink;
+                btn.target = "_blank";
+                btn.rel = "noopener noreferrer";
+                btn.className = "btn btn-sm btn-outline-secondary";
+                btn.textContent = "Abrir";
+                actionTd.appendChild(btn);
+            }
+            tr.appendChild(actionTd);
+
+            if (isFolder) {
+                tr.addEventListener("click", function () {
+                    stack.push({ id: navId, name: file.name });
+                    loadFolder(navId);
+                });
+            }
+
+            tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        container.innerHTML = "";
+        container.appendChild(table);
+    }
+
+    function escapeHtml(text) {
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // Carrega pasta raiz ao iniciar
+    loadFolder(ROOT_FOLDER_ID);
+})();
+</script>
+{% endblock %}

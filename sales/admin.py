@@ -8,7 +8,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from PIL import Image
 
-from .models import CartItem, FavoriteItem, PortalUser, Vendor, FamilyPhoto, GrupoPrazo, PriceList
+from .models import CartItem, ConsultaPrecosLog, FavoriteItem, PortalUser, Vendor, FamilyPhoto, GrupoPrazo, PriceList
 
 
 @admin.register(Vendor)
@@ -57,6 +57,20 @@ class GrupoPrazoAdmin(admin.ModelAdmin):
 class PriceListAdmin(admin.ModelAdmin):
     list_display = ("name",)
     search_fields = ("name",)
+
+
+@admin.register(ConsultaPrecosLog)
+class ConsultaPrecosLogAdmin(admin.ModelAdmin):
+    list_display = ("owner_id", "user_name", "accessed_at")
+    search_fields = ("owner_id", "user_name")
+    list_filter = ("accessed_at",)
+    readonly_fields = ("owner_id", "user_name", "accessed_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 class StaticImageUploadForm(forms.Form):

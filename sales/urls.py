@@ -62,4 +62,8 @@ urlpatterns = [
     path("json/produtos/", views.json_produtos_innovaro, name="json_produtos_innovaro"),
     path("json/precos/", views.json_precos_produto, name="json_precos_produto"),
 
+    # Material / Google Drive
+    path("material/", views.material, name="material"),
+    path("api/drive/files/", views.drive_files, name="drive-files"),
+
 ]

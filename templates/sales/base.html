@@ -39,6 +39,9 @@
                 <li class="nav-item">
                     <a class="nav-link {% block nav_consult_class %}{% endblock %}" href="{% url 'consult-price' %}" hx-get="{% url 'consult-price' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Consultar Preços</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {% block nav_material_class %}{% endblock %}" href="{% url 'material' %}" hx-get="{% url 'material' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Material</a>
+                </li>
                 {% if request.session.profile_id == 1 %}
                 <li class="nav-item">
                     <a class="nav-link {% block nav_manage_class %}{% endblock %}" href="{% url 'manage-users' %}" hx-get="{% url 'manage-users' %}" hx-target="#app-main" hx-select="#app-main" hx-swap="outerHTML" hx-push-url="true">Gerenciar acessos</a>

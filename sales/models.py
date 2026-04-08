@@ -222,3 +222,21 @@ class FormaPagamento(models.Model):
 
     def __str__(self):
         return f"{self.descricao} (TableId: {self.table_id} | ID: {self.pagamento_id})"
+
+
+class ConsultaPrecosLog(models.Model):
+    owner_id = models.PositiveIntegerField(verbose_name="Owner ID")
+    user_name = models.CharField(max_length=150, blank=True, verbose_name="Nome do Usuário")
+    accessed_at = models.DateTimeField(auto_now_add=True, verbose_name="Acessado em")
+
+    class Meta:
+        verbose_name = "Log de Consulta de Preços"
+        verbose_name_plural = "Logs de Consulta de Preços"
+        ordering = ["-accessed_at"]
+        indexes = [
+            models.Index(fields=["owner_id"]),
+            models.Index(fields=["accessed_at"]),
+        ]
+
+    def __str__(self):
+        return f"Owner {self.owner_id} ({self.user_name}) - {self.accessed_at:%d/%m/%Y %H:%M}"

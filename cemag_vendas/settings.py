@@ -170,6 +170,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 CEMAG_API_BASE_URL = os.environ.get("CEMAG_API_BASE_URL", "https://api.exemplo.cemag.com.br")
 CEMAG_API_TOKEN = os.environ.get("CEMAG_API_TOKEN", "")
 
+GOOGLE_DRIVE_CREDENTIALS_JSON = os.environ.get("GOOGLE_DRIVE_CREDENTIALS_JSON", "")
+GOOGLE_DRIVE_ROOT_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "0AFdA03a_HdweUk9PVA")
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
