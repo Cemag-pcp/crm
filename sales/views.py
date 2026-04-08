@@ -167,7 +167,14 @@ def consult_price(request):
     return render(request, "sales/consult_price.html", context)
 
 
+_drive_service_cache = None
+
+
 def _get_drive_service():
+    global _drive_service_cache
+    if _drive_service_cache is not None:
+        return _drive_service_cache
+
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     info = json.loads(settings.GOOGLE_DRIVE_CREDENTIALS_JSON)
@@ -175,7 +182,8 @@ def _get_drive_service():
         info,
         scopes=["https://www.googleapis.com/auth/drive.readonly"],
     )
-    return build("drive", "v3", credentials=creds)
+    _drive_service_cache = build("drive", "v3", credentials=creds)
+    return _drive_service_cache
 
 
 @require_GET
