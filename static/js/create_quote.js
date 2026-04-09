@@ -103,6 +103,7 @@
   const clearCartBtn = document.getElementById("clearCartBtn");
   const saveOrderBtn = document.getElementById("saveOrderBtn");
   const formaPagamentoId = document.getElementById("formaPagamentoId");
+  let _lastConfirmedItems = [];
   const filters = {
     modeloSimples: document.getElementById("filtroModeloSimples"),
     categoria: document.getElementById("filtroCategoria"),
@@ -1797,6 +1798,7 @@
 
   async function showConfirmation() {
     const items = await fetchCartItems();
+    _lastConfirmedItems = items;
     if (!confirmOverlay || !confirmCardsBody || !confirmSummary) return;
     await ensureColorIds();
 
@@ -2017,14 +2019,16 @@
       const paymentIdTipo2 = paymentOpt?.dataset?.idTipo2 || "";
       const paymentIdSelected = paymentOpt?.dataset?.idTipo1 || paymentOpt?.value || "";
       
-      const cartItems = await fetchCartItems(false);
+      // Copia para clipboard ANTES de qualquer await de rede (contexto de gesto do usuário)
       try {
-        const proposalText = buildProposalClipboardText(cartItems);
+        const proposalText = buildProposalClipboardText(_lastConfirmedItems);
         await copyToClipboard(proposalText);
         showToast("Resumo da proposta copiado para a área de transferência.", "success");
       } catch (copyErr) {
         showToast("Não foi possível copiar o resumo da proposta.", "warning");
       }
+
+      const cartItems = await fetchCartItems(false);
 
       const products = await Promise.all(
         cartItems.map(async (it, idx) => {

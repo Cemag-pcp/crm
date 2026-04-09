@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(python:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(./render.exe services:*)",
+      "Bash(./render.exe env:*)",
+      "Bash(./render.exe --help)",
+      "Bash(./render.exe ea:*)",
+      "Bash(xargs grep:*)",
+      "Bash(./render.exe whoami:*)",
+      "Bash(curl:*)",
+      "Bash(grep -E \"\\\\.py$|migrations\")",
+      "Bash(./render.exe deploys:*)",
+      "Bash(xargs ls:*)",
+      "Bash(find:*)",
+      "Bash(xargs -0 grep -l \"proposta\\\\|proposal\")"
     ]
   }
 }
