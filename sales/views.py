@@ -30,6 +30,18 @@ from .models import (
 )
 from .services import fetch_vendors_from_api, sync_vendors, _zip_products_from_arrays, get_prop_value
 
+
+def _normalize_discount_percent(value):
+    try:
+        discount = float(value or 0)
+    except Exception:
+        return 0.0
+    if discount < 0:
+        return 0.0
+    if discount > 100:
+        return discount / 100
+    return discount
+
 @require_GET
 def vendors(request):
     source = request.GET.get("source", "db")
@@ -1331,7 +1343,7 @@ def ploomes_quote_detail(request):
                 "quantity": p.get("Quantity") if p.get("Quantity") is not None else 1,
                 "unit_price": p.get("Total") / p.get("Quantity"),
                 "total": p.get("Total") or 0,
-                "discount_percent": float(p.get("Discount"))/100 or 0 if p.get("Discount") is not None else 0,
+                "discount_percent": _normalize_discount_percent(p.get("Discount")) if p.get("Discount") is not None else 0,
                 "color_id": color_id, 
                 "original_price": p.get("UnitPrice")
 ,
@@ -1467,7 +1479,7 @@ def ploomes_create_quote(request):
         qty = max(1, int(product.get("quantity", 1) or 1))
         line_total = float(product.get("total", 0) or 0)
         unit_price = float(product.get("unit_price", 0) or 0) or (line_total / qty if qty else 0)
-        discount = float(product.get("discount_percent", 0) or 0)
+        discount = _normalize_discount_percent(product.get("discount_percent", 0))
         prazo = product.get("prazo") or 0
         try:
             group_id = product.get("group_id") or product.get("groupId") or product.get("GroupId")
@@ -1489,7 +1501,7 @@ def ploomes_create_quote(request):
                 "Total": line_total,
                 "ProductId": product.get("product_id") or product.get("ProductId"),
                 "Ordination": idx,
-                "Discount": discount * 100,
+                "Discount": discount,
                 "OtherProperties": [
                     {
                         "FieldKey": "quote_product_76A1F57A-B40F-4C4E-B412-44361EB118D8",  # Cor
@@ -1505,7 +1517,7 @@ def ploomes_create_quote(request):
                     },
                     {
                         "FieldKey": "quote_product_7FD5E293-CBB5-43C8-8ABF-B9611317DF75",  # % de desconto
-                        "DecimalValue": discount * 100,
+                        "DecimalValue": discount,
                     },
                 ],
             }
@@ -1886,7 +1898,7 @@ def ploomes_quote_review(request, quote_id: int):
         qty = max(1, int(product.get("quantity", 1) or 1))
         line_total = float(product.get("total", 0) or 0)
         unit_price = float(product.get("unit_price", 0) or 0) or (line_total / qty if qty else 0)
-        discount = float(product.get("discount_percent", 0) or 0)
+        discount = _normalize_discount_percent(product.get("discount_percent", 0))
         prazo = product.get("prazo") or 0
         try:
             group_id = product.get("group_id") or product.get("groupId") or product.get("GroupId")
@@ -1915,7 +1927,7 @@ def ploomes_quote_review(request, quote_id: int):
                 "Total": line_total,
                 "ProductId": product.get("product_id") or product.get("ProductId"),
                 "Ordination": idx,
-                "Discount": discount * 100,
+                "Discount": discount,
                 "OtherProperties": [
                     {
                         "FieldKey": "quote_product_76A1F57A-B40F-4C4E-B412-44361EB118D8",  # Cor
@@ -1931,7 +1943,7 @@ def ploomes_quote_review(request, quote_id: int):
                     },
                     {
                         "FieldKey": "quote_product_7FD5E293-CBB5-43C8-8ABF-B9611317DF75",  # % de desconto
-                        "DecimalValue": (discount * 100) if discount else None,
+                        "DecimalValue": discount if discount else None,
                     },
                     {
                         "FieldKey": "quote_product_A0AED1F2-458F-47D3-BA29-C235BDFC5D55",  # Total sem desconto
