@@ -2154,6 +2154,13 @@
           return;
         }
         showToast(isRevision ? "Revisão feita com sucesso." : "Ordem e proposta criadas com sucesso.", "success");
+        try {
+          await clearCartItems();
+          updateCartBadge([]);
+          if (cartFloatingBtn) cartFloatingBtn.classList.add("d-none");
+        } catch (_) {
+          // O fluxo principal ja concluiu; nao bloqueia o redirecionamento.
+        }
         setTimeout(() => {
           window.location.href = "/";
         }, 500);
