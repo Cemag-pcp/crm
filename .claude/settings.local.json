@@ -14,7 +14,8 @@
       "Bash(./render.exe deploys:*)",
       "Bash(xargs ls:*)",
       "Bash(find:*)",
-      "Bash(xargs -0 grep -l \"proposta\\\\|proposal\")"
+      "Bash(xargs -0 grep -l \"proposta\\\\|proposal\")",
+      "Bash(C:/Users/pcp2/render.exe:*)"
     ]
   }
 }
