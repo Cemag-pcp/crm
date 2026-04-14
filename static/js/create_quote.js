@@ -2157,7 +2157,6 @@
         try {
           await clearCartItems();
           updateCartBadge([]);
-          if (cartFloatingBtn) cartFloatingBtn.classList.add("d-none");
         } catch (_) {
           // O fluxo principal ja concluiu; nao bloqueia o redirecionamento.
         }
