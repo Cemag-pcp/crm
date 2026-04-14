@@ -8,6 +8,7 @@
     cards: document.getElementById("cardsContainer"),
     alert: document.getElementById("alertArea"),
     loadBtn: document.getElementById("loadBtn"),
+    clearFiltersBtn: document.getElementById("clearFiltersBtn"),
     refreshBtn: document.getElementById("refreshBtn"),
     login: document.getElementById("inputLogin"),
     status: document.getElementById("statusFilter"),
@@ -657,7 +658,16 @@
     fetchQuotes(true);
   }
 
+  function clearFiltersAndFetch() {
+    if (elements.status) elements.status.value = "";
+    if (elements.aceiteExterno) elements.aceiteExterno.value = "";
+    if (elements.aprovacaoDesconto) elements.aprovacaoDesconto.value = "";
+    if (elements.revenda) elements.revenda.value = "";
+    resetAndFetch();
+  }
+
   elements.loadBtn?.addEventListener("click", resetAndFetch);
+  elements.clearFiltersBtn?.addEventListener("click", clearFiltersAndFetch);
   elements.refreshBtn?.addEventListener("click", resetAndFetch);
 
   const handleScroll = () => {
