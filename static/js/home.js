@@ -18,6 +18,8 @@
     deliveryDeadlineStatusFechada: document.getElementById("deliveryDeadlineStatusFechada"),
     deliveryDeadlineAvulsa: document.getElementById("deliveryDeadlineAvulsa"),
     deliveryDeadlineFechada: document.getElementById("deliveryDeadlineFechada"),
+    deliveryDeadlineAvulsaDays: document.getElementById("deliveryDeadlineAvulsaDays"),
+    deliveryDeadlineFechadaDays: document.getElementById("deliveryDeadlineFechadaDays"),
     // totalDeals: document.getElementById("metricTotal"),
     // totalAmount: document.getElementById("metricAmount"),
     openDeals: document.getElementById("metricOpen"),
@@ -94,6 +96,41 @@
       elements.deliveryDeadlineStatusFechada.textContent = "Erro";
       elements.deliveryDeadlineStatusFechada.className = "badge bg-danger status-chip";
       console.error("Falha ao carregar prazo de entrega:", error);
+    }
+  }
+
+  function deadlineDaysFromPtBrText(text) {
+    const match = (text || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!match) return null;
+
+    const [, day, month, year] = match;
+    const deadline = new Date(Number(year), Number(month) - 1, Number(day));
+    if (Number.isNaN(deadline.getTime())) return null;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffMs = deadline.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return `${Math.abs(diffDays)} dia(s) em atraso`;
+    }
+    return `${diffDays} dia(s)`;
+  }
+
+  function syncDeadlineDaysLabels() {
+    if (elements.deliveryDeadlineAvulsaDays) {
+      const avulsaDays = deadlineDaysFromPtBrText(elements.deliveryDeadlineAvulsa?.textContent);
+      elements.deliveryDeadlineAvulsaDays.textContent = avulsaDays
+        ? `Prazo em dias: ${avulsaDays}.`
+        : "Prazo em dias: indisponível.";
+    }
+
+    if (elements.deliveryDeadlineFechadaDays) {
+      const fechadaDays = deadlineDaysFromPtBrText(elements.deliveryDeadlineFechada?.textContent);
+      elements.deliveryDeadlineFechadaDays.textContent = fechadaDays
+        ? `Prazo em dias: ${fechadaDays}.`
+        : "Prazo em dias: indisponível.";
     }
   }
 
@@ -634,7 +671,8 @@
 
   function initHomePage() {
     if (!elements.login || !elements.loadBtn || !elements.cards) return;
-    fetchDeliveryDeadline(); // nao bloqueia renderizacao do restante da pagina
+    fetchDeliveryDeadline()
+      .finally(syncDeadlineDaysLabels); // nao bloqueia renderizacao do restante da pagina
     if (elements.login && elements.login.value) {
       resetAndFetch();
     }
