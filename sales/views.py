@@ -7,7 +7,10 @@ from django.views.decorators.http import require_GET, require_POST
 
 from collections import defaultdict
 import json
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
 from django.conf import settings
 from datetime import datetime, timedelta, date
 
@@ -175,6 +178,7 @@ def _get_drive_service():
     if _drive_service_cache is not None:
         return _drive_service_cache
 
+    logger.info("[Drive] Inicializando serviço Google Drive...")
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
     info = json.loads(settings.GOOGLE_DRIVE_CREDENTIALS_JSON)
@@ -182,7 +186,9 @@ def _get_drive_service():
         info,
         scopes=["https://www.googleapis.com/auth/drive.readonly"],
     )
-    _drive_service_cache = build("drive", "v3", credentials=creds)
+    logger.info("[Drive] Credenciais OK, chamando build()...")
+    _drive_service_cache = build("drive", "v3", credentials=creds, cache_discovery=False)
+    logger.info("[Drive] Serviço criado com sucesso.")
     return _drive_service_cache
 
 
@@ -212,11 +218,13 @@ def drive_files(request):
     is_root = folder_id == root_id
 
     try:
+        logger.info("[Drive] Obtendo serviço para folder_id=%s is_root=%s", folder_id, is_root)
         service = _get_drive_service()
         query = f"'{folder_id}' in parents and trashed = false"
 
         fields = "files(id, name, mimeType, webViewLink, modifiedTime, size, shortcutDetails)"
 
+        logger.info("[Drive] Executando list()...")
         if is_root:
             # Shared Drive: lista o conteúdo do drive raiz
             result = service.files().list(
@@ -240,7 +248,9 @@ def drive_files(request):
             ).execute()
 
         files = result.get("files", [])
+        logger.info("[Drive] Retornando %d arquivos.", len(files))
     except Exception as exc:
+        logger.exception("[Drive] Erro ao listar arquivos: %s", exc)
         return JsonResponse({"detail": str(exc)}, status=502)
 
     return JsonResponse({"files": files})

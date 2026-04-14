@@ -124,18 +124,25 @@
 
         container.innerHTML = '<div class="d-flex justify-content-center py-5"><div class="spinner-border text-secondary" role="status"><span class="visually-hidden">Carregando...</span></div></div>';
 
-        fetch("/api/drive/files/?folder_id=" + encodeURIComponent(folderId))
-            .then(function (r) { return r.json(); })
+        const controller = new AbortController();
+        const timeoutId = setTimeout(function () { controller.abort(); }, 20000);
+
+        fetch("/api/drive/files/?folder_id=" + encodeURIComponent(folderId), { signal: controller.signal })
+            .then(function (r) { clearTimeout(timeoutId); return r.json(); })
             .then(function (data) {
                 if (data.detail) {
-                    container.innerHTML = '<div class="alert alert-danger">' + data.detail + '</div>';
+                    container.innerHTML = '<div class="alert alert-danger">' + escapeHtml(data.detail) + '</div>';
                     return;
                 }
                 cache.set(folderId, data.files);
                 renderFiles(data.files);
             })
             .catch(function (err) {
-                container.innerHTML = '<div class="alert alert-danger">Erro ao carregar arquivos.</div>';
+                clearTimeout(timeoutId);
+                const msg = err.name === "AbortError"
+                    ? "Tempo limite excedido ao carregar arquivos do Google Drive."
+                    : "Erro ao carregar arquivos.";
+                container.innerHTML = '<div class="alert alert-danger">' + msg + '</div>';
             });
     }
 
