@@ -1793,8 +1793,7 @@
       });
 
       cartTableBody.appendChild(tr);
-      recalcFromDiscount();
-      colorInput.dispatchEvent(new Event("change"));
+      recalcTotal();
     });
     if (cartTotalValue) {
       cartTotalValue.textContent = `R$ ${totalGeral.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
