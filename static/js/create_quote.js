@@ -1580,10 +1580,10 @@
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data = await res.json();
       const items = data.items || [];
-      updateCartBadge(items);
       if (items.length && cartFloatingBtn) {
         cartFloatingBtn.classList.remove("d-none");
       }
+      updateCartBadge(items);
       // Habilita/desabilita o botão de confirmar carrinho
       if (confirmCartBtn) {
         confirmCartBtn.disabled = items.length === 0;
