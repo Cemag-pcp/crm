@@ -334,7 +334,7 @@
         color: it.color_id || "",
         price: it.original_price,
         discount_percent: discount,
-        final_price: it.total,
+        final_price: unit,
         favorite: false,
         quantity: qty,
       });
@@ -1629,9 +1629,10 @@
       const basePrice = parsePrice(item.price);
       const discount = Math.max(0, parseFloat(item.discount_percent) || 0);
       const qty = item.quantity || 1;
-      // const finalUnit = parsePrice((basePrice * (1 - discount / 100)) || 0);
-      // const finalUnitDisplay = (Number(finalUnit) || 0).toFixed(2);
-      const unitFinal = (Number(basePrice) || 0) * (1 - discount / 100);
+      const savedUnitPrice = Number(item.final_price);
+      const unitFinal = Number.isFinite(savedUnitPrice) && savedUnitPrice > 0
+        ? savedUnitPrice
+        : (Number(basePrice) || 0) * (1 - discount / 100);
       const total = unitFinal * qty;
       totalGeral += total;
       
@@ -1818,9 +1819,8 @@
 
     productsInfo.forEach(({ item: it, productInfo }) => {
       const qty = it.quantity || 1;
-      const price = parseFloat(it.price) || parseFloat(it.final_price) || 0;
       const discount = Math.max(0, parseFloat(it.discount_percent) || 0);
-      const unitWithDiscount = price * (1 - discount / 100);
+      const unitWithDiscount = parseFloat(it.final_price) || parseFloat(it.price) || 0;
       const itemTotal = unitWithDiscount * qty;
       total += itemTotal;
 
