@@ -1078,11 +1078,25 @@
   function parsePrice(text) {
     if (typeof text === 'number') return text;
     if (!text) return 0;
-    // Se vier como string de centavos (ex: "2833500"), divide por 100
-    const cleaned = text.replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
-    let num = parseFloat(cleaned);
-    // Se for inteiro grande, assume centavos e divide por 100
-    if (num > 100000) num = num / 100;
+    const raw = String(text).trim().replace(/\s/g, "");
+    if (!raw) return 0;
+
+    const hasComma = raw.includes(",");
+    const dotCount = (raw.match(/\./g) || []).length;
+
+    let normalized = raw;
+
+    if (hasComma) {
+      normalized = raw.replace(/\./g, "").replace(",", ".");
+    } else if (dotCount > 1) {
+      normalized = raw.replace(/\./g, "");
+    } else if (dotCount === 1) {
+      const [left, right = ""] = raw.split(".");
+      normalized = right.length <= 2 ? `${left}.${right}` : `${left}${right}`;
+    }
+
+    normalized = normalized.replace(/[^0-9.]/g, "");
+    const num = parseFloat(normalized);
     return Number.isNaN(num) ? 0 : num;
   }
 
