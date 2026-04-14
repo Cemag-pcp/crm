@@ -21,6 +21,7 @@
   const urlParams = new URLSearchParams(window.location.search);
   const isRevision = urlParams.get("revision") === "1";
   const isConsultMode = typeof window.isConsultMode !== 'undefined' ? window.isConsultMode : false;
+  let cartRevealEnabled = isConsultMode || isRevision;
   const revisionQuoteId = urlParams.get("quoteId") || null;
   let revisionDealId = null;
   let revisionPersonId = null;
@@ -1574,13 +1575,17 @@
     cartCountBadge.classList.toggle("d-none", !shouldShow);
   }
 
-  async function fetchCartItems(shouldRender = true) {
+  async function fetchCartItems(shouldRender = true, options = {}) {
     try {
       const res = await fetch("/api/cart/list/", { headers: { Accept: "application/json" } });
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       const data = await res.json();
       const items = data.items || [];
-      if (items.length && cartFloatingBtn) {
+      const revealButton = options.revealButton ?? cartRevealEnabled;
+      if (revealButton) {
+        cartRevealEnabled = true;
+      }
+      if (items.length && cartFloatingBtn && cartRevealEnabled) {
         cartFloatingBtn.classList.remove("d-none");
       }
       updateCartBadge(items);
@@ -1966,7 +1971,8 @@
       // desabiiltar botão e mostrar loading
       confirmCartBtn.disabled = true;
       confirmCartBtn.innerHTML = 'aguarde...';
-
+      cartRevealEnabled = true;
+      await fetchCartItems(false, { revealButton: true });
       await showConfirmation();
 
       confirmCartBtn.innerHTML = 'Continuar';
