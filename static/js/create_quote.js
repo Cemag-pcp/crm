@@ -31,6 +31,16 @@
   const formSection = document.getElementById("formSection");
   const catalogSection = document.getElementById("catalogSection");
 
+  // Mostra o spinner de carregamento imediatamente (antes do resto do setup do script rodar),
+  // para o usuário ver feedback assim que a tela abre em vez de esperar todo o script processar.
+  if (isConsultMode && loadingOverlay) {
+    loadingOverlay.classList.remove("d-none");
+    loadingOverlay.style.display = "flex";
+    if (formSection) {
+      formSection.classList.add("d-none");
+    }
+  }
+
   // Helper para obter owner_id
   function getOwnerId() {
     return form?.owner_id?.value || document.querySelector('[name="owner_id"]')?.value || null;
@@ -2781,15 +2791,7 @@
 
   // Inicializa modo consulta ou revisão
   if (isConsultMode) {
-    // Modo "Consultar Preço" - mostra o catálogo logo de cara
-    if (loadingOverlay) {
-      loadingOverlay.classList.remove("d-none");
-      loadingOverlay.style.display = "flex";
-    }
-    if (formSection) {
-      formSection.classList.add("d-none");
-    }
-    
+    // Modo "Consultar Preço" - overlay já foi exibido no topo do script; carrega o catálogo logo de cara
     // Carrega o catálogo apenas com as listas do usuário
     const profileId = getProfileId();
     const allowAll = profileId === 1;

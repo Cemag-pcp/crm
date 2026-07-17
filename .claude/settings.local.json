@@ -48,7 +48,8 @@
       "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -c \"import pandas\")",
       "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -m pip install gspread pandas)",
       "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -c \"import gspread; print\\('gspread OK'\\)\")",
-      "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -c \"import pandas; print\\('pandas OK'\\)\")"
+      "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -c \"import pandas; print\\('pandas OK'\\)\")",
+      "Bash(node --check static/js/create_quote.js)"
     ]
   }
 }
