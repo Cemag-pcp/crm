@@ -419,7 +419,7 @@ body.page-loading #pageTransitionLoader {
   width: 100%;
   height: 100%;
   background: rgba(15, 23, 42, 0.45);
-  z-index: 1065;
+  z-index: 3020;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -547,7 +547,7 @@ body.page-loading #pageTransitionLoader {
   width: 100%;
   height: 100%;
   background: rgba(15, 23, 42, 0.5);
-  z-index: 1070;
+  z-index: 3020;
   display: flex;
   align-items: center;
   justify-content: center;
