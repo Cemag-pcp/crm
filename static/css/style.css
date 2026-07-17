@@ -107,6 +107,14 @@ body.page-loading #pageTransitionLoader {
   z-index: 3001;
 }
 
+.modal-backdrop {
+  z-index: 3010;
+}
+
+.modal {
+  z-index: 3020;
+}
+
 .btn-primary {
   background-color: #4f46e5;
   border-color: #4f46e5;
