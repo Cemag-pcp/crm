@@ -87,13 +87,13 @@
     <div class="loader-bar"></div>
 </div>
 <div class="modal fade" id="companyCreateModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light border border-secondary">
             <div class="modal-header">
                 <h5 class="modal-title">Cadastrar Empresa</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <form id="companyCreateForm">
+            <form id="companyCreateForm" style="display: contents;">
                 <div class="modal-body">
                     <div id="companyCreateAlert" class="alert d-none" role="alert"></div>
                     <div class="row g-3">
@@ -152,13 +152,13 @@
 </div>
 
 <div class="modal fade" id="contactCreateModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light border border-secondary">
             <div class="modal-header">
                 <h5 class="modal-title">Cadastrar Contato</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <form id="contactCreateForm">
+            <form id="contactCreateForm" style="display: contents;">
                 <div class="modal-body">
                     <div id="contactCreateAlert" class="alert d-none" role="alert"></div>
                     <div class="row g-3">
@@ -252,6 +252,17 @@
         setActiveByHref(link.getAttribute("href"));
       });
     });
+
+    var mobileNavCollapseEl = document.getElementById("mainNavbar");
+    if (mobileNavCollapseEl) {
+      var closeMobileNav = function () {
+        var instance = bootstrap.Collapse.getOrCreateInstance(mobileNavCollapseEl, { toggle: false });
+        instance.hide();
+      };
+      mobileNavCollapseEl.querySelectorAll(".nav-link:not(.dropdown-toggle), .dropdown-item, a.btn").forEach(function (el) {
+        el.addEventListener("click", closeMobileNav);
+      });
+    }
 
     document.querySelectorAll(".crm-navbar a[data-full-nav-loading='true']").forEach(function (link) {
       link.addEventListener("click", function () {
