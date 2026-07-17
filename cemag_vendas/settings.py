@@ -173,6 +173,23 @@ CEMAG_API_TOKEN = os.environ.get("CEMAG_API_TOKEN", "")
 GOOGLE_DRIVE_CREDENTIALS_JSON = os.environ.get("GOOGLE_DRIVE_CREDENTIALS_JSON", "")
 GOOGLE_DRIVE_ROOT_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "0AFdA03a_HdweUk9PVA")
 
+# E-mail (SMTP)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("smtp_host", "")
+EMAIL_PORT = int(os.environ.get("smtp_port", "587"))
+EMAIL_HOST_USER = os.environ.get("smtp_user", "")
+EMAIL_HOST_PASSWORD = os.environ.get("smtp_password", "")
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# WhatsApp Cloud API (Meta oficial)
+WHATSAPP_API_VERSION = os.environ.get("whatsapp_api_version", "v21.0").strip()
+WHATSAPP_PHONE_NUMBER_ID = os.environ.get("whatsapp_phone_number_id", "").strip()
+WHATSAPP_TOKEN = os.environ.get("whatsapp_token", "").strip()
+WHATSAPP_BUSINESS_ACCOUNT_ID = os.environ.get("whatsapp_business_account_id", "").strip()
+WHATSAPP_TEMPLATE_NAME = os.environ.get("whatsapp_template_name", "appointment_reminder").strip()
+WHATSAPP_TEMPLATE_LANGUAGE = os.environ.get("whatsapp_template_language", "en_US").strip()
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 

@@ -56,6 +56,7 @@ urlpatterns = [
     path("api/family-photo/", views.family_photo, name="family-photo"),
     path("api/product-photo/", views.family_photo, name="product-photo"),  # alias
     path("api/ploomes/quotes/create/", views.ploomes_create_quote, name="ploomes-create-quote"),
+    path("api/ploomes/quotes/resend-whatsapp/", views.ploomes_resend_whatsapp, name="ploomes-resend-whatsapp"),
     path("api/ploomes/deals/create/", views.ploomes_create_deal, name="ploomes-create-deal"),
 
     # Preços e produtos

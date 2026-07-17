@@ -8,10 +8,14 @@ from django.views.decorators.http import require_GET, require_POST
 from collections import defaultdict
 import json
 import logging
+import math
 import requests
+import threading
+import time
 
 logger = logging.getLogger(__name__)
 from django.conf import settings
+from django.utils import timezone
 from datetime import datetime, timedelta, date
 
 from .models import (
@@ -29,6 +33,170 @@ from .models import (
     FormaPagamento,
 )
 from .services import fetch_vendors_from_api, sync_vendors, _zip_products_from_arrays, get_prop_value
+from django.core.mail import send_mail
+
+
+def _get_quote_document_info(deal_id):
+    """Busca DocumentUrl (PDF), Key (link de aceite), status de aprovação e nome da empresa (ContactName) da proposta no Ploomes."""
+    url = (
+        "https://public-api2.ploomes.com/Quotes"
+        "?$top=10&$filter=DealId+eq+{}&$select=DocumentUrl,Key,ApprovalStatusId,ContactName"
+    ).format(deal_id)
+    try:
+        resp = requests.get(url, headers=_ploomes_headers(), timeout=15)
+        resp.raise_for_status()
+        documentos = resp.json().get("value") or []
+    except Exception:
+        logger.exception("Erro ao buscar documento da proposta (DealId=%s)", deal_id)
+        return None, None, None, None
+
+    if not documentos:
+        return None, None, None, None
+
+    doc = documentos[0]
+    return doc.get("DocumentUrl"), doc.get("Key"), doc.get("ApprovalStatusId"), doc.get("ContactName")
+
+
+def _wait_for_quote_document(deal_id, attempts=6, delay_seconds=5):
+    """Aguarda o Ploomes gerar o PDF/link da proposta, tentando algumas vezes (documento é gerado de forma assíncrona)."""
+    pdf = key = approver = contact_name = None
+    for _ in range(attempts):
+        pdf, key, approver, contact_name = _get_quote_document_info(deal_id)
+        if pdf or key:
+            break
+        time.sleep(delay_seconds)
+    return pdf, key, approver, contact_name
+
+
+def _send_whatsapp_template(to_number, *, body_params, header_text=None, button_params=None):
+    """Envia o template de proposta (aprovado no WhatsApp Manager) via WhatsApp Cloud API (Meta oficial).
+
+    Template atual (address_update, categoria Utilidade, pt_BR): cabeçalho "Proposta: {{1}}" (nome da empresa/cliente),
+    body "LINK DE ACEITE: {{1}} / PDF DA PROPOSTA: {{2}} / Proposta feita às: {{3}}", sem botões
+    (usado enquanto o template com botões - proposta_cliente - não é aprovado pela Meta).
+    """
+    token = settings.WHATSAPP_TOKEN
+    phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
+    if not token or not phone_number_id:
+        return
+
+    digits = "".join(ch for ch in (to_number or "") if ch.isdigit())
+    if not digits:
+        return
+
+    url = f"https://graph.facebook.com/{settings.WHATSAPP_API_VERSION}/{phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    components = []
+    if header_text is not None:
+        components.append(
+            {
+                "type": "header",
+                "parameters": [{"type": "text", "text": header_text}],
+            }
+        )
+    components.append(
+        {
+            "type": "body",
+            "parameters": [{"type": "text", "text": param} for param in body_params],
+        }
+    )
+    for index, button_value in enumerate(button_params or []):
+        components.append(
+            {
+                "type": "button",
+                "sub_type": "url",
+                "index": str(index),
+                "parameters": [{"type": "text", "text": button_value}],
+            }
+        )
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": digits,
+        "type": "template",
+        "template": {
+            "name": settings.WHATSAPP_TEMPLATE_NAME,
+            "language": {"code": settings.WHATSAPP_TEMPLATE_LANGUAGE},
+            "components": components,
+        },
+    }
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=15)
+        if resp.status_code not in (200, 201):
+            logger.error("Erro ao enviar template WhatsApp para %s: %s", digits, resp.text)
+        else:
+            logger.info("Template WhatsApp enviado para %s: %s", digits, resp.text)
+    except Exception:
+        logger.exception("Erro ao enviar template WhatsApp para %s", digits)
+
+
+def _send_quote_notifications(owner_id, *, is_consult, deal_id, quote_id, total, total_itens):
+    """Notifica por e-mail e WhatsApp o usuário do portal ao finalizar uma proposta ou consulta de preço."""
+    portal_user = PortalUser.objects.filter(owner_id=owner_id).first()
+    if not portal_user or (not portal_user.email and not portal_user.whatsapp):
+        return
+
+    if is_consult:
+        subject = "Consulta de preço realizada - CEMAG"
+        action_label = "Consulta de preço"
+    else:
+        subject = "Proposta criada com sucesso - CEMAG"
+        action_label = "Proposta"
+
+    pdf, key, approver, contact_name = _wait_for_quote_document(deal_id)
+    aceite_link = "https://documents.ploomes.com/?k={}&entity=quote".format(key) if key else None
+
+    if approver == 1:
+        documento_info = "Aguardando aprovação do pedido.\n\nProposta em pdf: {}".format(pdf)
+    elif aceite_link:
+        documento_info = "Link de aceite: {}\n\nProposta em pdf: {}".format(aceite_link, pdf)
+    else:
+        documento_info = "Proposta em pdf: {}".format(pdf) if pdf else ""
+
+    message = (
+        f"Olá {portal_user.name},\n\n"
+        f"{action_label} registrada com sucesso no sistema CEMAG.\n\n"
+        f"Deal: {deal_id}\n"
+        f"Proposta (Quote): {quote_id}\n"
+        f"Itens: {total_itens}\n"
+        f"Valor total: R$ {total:,.2f}\n\n"
+        f"{documento_info}\n\n"
+        "Esta é uma mensagem automática, não responda."
+    )
+
+    if portal_user.email:
+        try:
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [portal_user.email], fail_silently=False)
+        except Exception:
+            logger.exception("Erro ao enviar e-mail de notificação para %s", portal_user.email)
+
+    if portal_user.whatsapp:
+        data_pedido = timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M")
+        body_params = [
+            aceite_link or "Aguardando aprovação do pedido",
+            pdf or "Documento ainda não disponível",
+            data_pedido,
+        ]
+        _send_whatsapp_template(portal_user.whatsapp, header_text=contact_name or portal_user.name, body_params=body_params)
+
+
+def _send_quote_notifications_async(owner_id, *, is_consult, deal_id, quote_id, total, total_itens):
+    """Dispara e-mail e WhatsApp em uma thread separada para não travar a resposta ao usuário."""
+    thread = threading.Thread(
+        target=_send_quote_notifications,
+        kwargs=dict(
+            owner_id=owner_id,
+            is_consult=is_consult,
+            deal_id=deal_id,
+            quote_id=quote_id,
+            total=total,
+            total_itens=total_itens,
+        ),
+        daemon=True,
+    )
+    thread.start()
 
 
 def _normalize_discount_percent(value):
@@ -412,34 +580,137 @@ def _resolve_profile_id_by_owner_id(owner_id):
     return None
 
 
-def _add_business_days(start_date: date, business_days: int) -> date:
-    """Soma dias uteis (ignora sabado e domingo)."""
-    current = start_date
-    added = 0
-    while added < business_days:
-        current += timedelta(days=1)
-        if current.weekday() < 5:
-            added += 1
-    return current
+PROGRAMACAO_SPREADSHEET_ID = "1olnMhK7OI6W0eJ-dvsi3Lku5eCYqlpzTGJfh1Q7Pv9I"
+
+CLASSES_RECURSO_PENDENTES = [
+    "Carretas Agrícolas com Carroceria Metálica",
+    "Carretas Agrícolas de Madeira",
+    "Carretas Tanque",
+    "Carretas Basculantes hidráulicas",
+    "Carretas Especiais",
+    "Colheitadeira",
+    "Transbordo",
+    "Roçadeiras M24",
+    "Outros Equipamentos",
+    "Produtos de Plantio",
+    "Carretas Agrícolas Fora de Linha",
+]
+
+_sheets_client_cache = None
 
 
-def _delivery_deadline_payload():
+def _get_sheets_client():
+    """Cliente gspread autorizado para ler a planilha de programação (cache em memória do processo)."""
+    global _sheets_client_cache
+    if _sheets_client_cache is not None:
+        return _sheets_client_cache
+
+    import gspread
+    from google.oauth2 import service_account
+
+    info = json.loads(settings.GOOGLE_DRIVE_CREDENTIALS_JSON)
+    creds = service_account.Credentials.from_service_account_info(
+        info,
+        scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"],
+    )
+    _sheets_client_cache = gspread.authorize(creds)
+    return _sheets_client_cache
+
+
+def _proximo_dia_livre(data_inicial, ocupados):
+    data = data_inicial
+    while True:
+        data += timedelta(days=1)
+        if data.weekday() < 5 and data not in ocupados:
+            return data
+
+
+def _somar_dias_uteis(data_inicial, dias_uteis, ocupados):
+    data = data_inicial
+    adicionados = 0
+    while adicionados < dias_uteis:
+        data += timedelta(days=1)
+        if data.weekday() < 5 and data not in ocupados:
+            adicionados += 1
+    return data
+
+
+def _proximo_dia_util(data_inicial, dias):
+    """Soma a quantidade de dias e empurra para frente se cair em sábado ou domingo."""
+    data = data_inicial + timedelta(days=dias)
+    while data.weekday() >= 5:
+        data += timedelta(days=1)
+    return data
+
+
+def _carretas_pendentes():
+    """Lê a aba 'Importar Dados' e calcula dias úteis extras por carretas pendentes (1 dia a cada 10 unidades)."""
+    import pandas as pd
+
+    sh = _get_sheets_client().open_by_key(PROGRAMACAO_SPREADSHEET_ID)
+    wks = sh.worksheet("Importar Dados")
+    data = wks.get_all_values()
+
+    df = pd.DataFrame(data[1:], columns=data[0])
+    df["PED_PREVISAOEMISSAODOC"] = pd.to_datetime(df["PED_PREVISAOEMISSAODOC"], format="%d/%m/%Y", errors="coerce")
+
+    df = df[
+        (df["PED_PREVISAOEMISSAODOC"] >= "2026-12-12")
+        & (df["PED_RECURSO.CLASSE.NOME"].isin(CLASSES_RECURSO_PENDENTES))
+    ]
+    df["PED_QUANTIDADE"] = df["PED_QUANTIDADE"].astype(int)
+    qt_carretas = df["PED_QUANTIDADE"].sum()
+
+    return math.ceil(qt_carretas / 10)
+
+
+def _encontrar_proximo_dia_livre():
+    """Calcula os prazos 'brutos' (Carga Fechada / Carreta Avulsa) a partir da planilha de programação no Google Sheets."""
+    import pandas as pd
+
+    sh = _get_sheets_client().open_by_key(PROGRAMACAO_SPREADSHEET_ID)
+    wks = sh.worksheet("Acomp. de cargas formadas")
+    data = wks.get_all_values()
+
+    df = pd.DataFrame(data[1:], columns=data[0])
+    df["Data"] = pd.to_datetime(df["Data"], format="%d/%m/%Y", errors="coerce")
+
+    dias_indisponiveis = df[df["Status"].isin(["feriado", "fechada"])]["Data"].dropna().tolist()
+
+    hoje = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    data_livre = _proximo_dia_livre(hoje, dias_indisponiveis)
+    prazo_5 = _somar_dias_uteis(data_livre, 5, dias_indisponiveis)
+
+    qtd_dias_uteis_extras = _carretas_pendentes()
+    proximo_dia_util_var = _proximo_dia_util(data_livre, qtd_dias_uteis_extras)
+    dias_soma = proximo_dia_util_var + timedelta(days=qtd_dias_uteis_extras)
+    prazo_10 = _somar_dias_uteis(dias_soma, 10, dias_indisponiveis)
+
+    return prazo_5, prazo_10
+
+
+NNE_PRICE_LIST = "Lista Preço N e NE"
+
+
+def _delivery_deadline_payload(price_list_name=None, *, prazo_bruto_fechada=None, prazo_bruto_avulsa=None):
     """
-    Calcula prazos de entrega.
-    Regra atual (fallback local): base em hoje, com minimos corridos.
+    Calcula o prazo de entrega final para uma lista de preço.
+    O "bruto" (prazo_bruto_fechada / prazo_bruto_avulsa) vem da planilha de programação (Google Sheets) via
+    _encontrar_proximo_dia_livre() e é o mesmo para todas as listas. Aqui aplicamos o piso mínimo por região:
+    "Lista Preço N e NE" = 25/35 dias corridos; qualquer outra lista = 30/40 dias corridos (+5 sobre o padrão).
+    Se o bruto vier abaixo do mínimo (ou não estiver disponível), usa o mínimo.
     """
     hoje = date.today()
+    extra_dias_uteis = 0 if price_list_name == NNE_PRICE_LIST else 5
+    min_fechada = 25 + extra_dias_uteis
+    min_avulsa = 35 + extra_dias_uteis
 
-    # Regra base em dias uteis
-    prazo_carga_fechada = _add_business_days(hoje, 5)
-    prazo_carreta_avulsa = _add_business_days(hoje, 15)
+    prazo_carga_fechada = prazo_bruto_fechada.date() if prazo_bruto_fechada else None
+    prazo_carreta_avulsa = prazo_bruto_avulsa.date() if prazo_bruto_avulsa else None
 
-    dias_corridos_fechada = (prazo_carga_fechada - hoje).days
-    dias_corridos_avulsa = (prazo_carreta_avulsa - hoje).days
-
-    # Minimos corridos
-    min_fechada = 25
-    min_avulsa = 35
+    dias_corridos_fechada = (prazo_carga_fechada - hoje).days if prazo_carga_fechada else -1
+    dias_corridos_avulsa = (prazo_carreta_avulsa - hoje).days if prazo_carreta_avulsa else -1
 
     if dias_corridos_fechada < min_fechada:
         prazo_carga_fechada = hoje + timedelta(days=min_fechada)
@@ -450,6 +721,7 @@ def _delivery_deadline_payload():
         dias_corridos_avulsa = min_avulsa
 
     return {
+        "price_list": price_list_name,
         "prazo_carreta_avulsa": prazo_carreta_avulsa.isoformat(),
         "prazo_carga_fechada": prazo_carga_fechada.isoformat(),
         "dias_corridos_fechada": dias_corridos_fechada,
@@ -459,13 +731,34 @@ def _delivery_deadline_payload():
 
 @require_GET
 def prazo_entrega(request):
-    """API para calcular prazo de entrega para exibicao no painel."""
+    """API para calcular prazo de entrega para exibicao no painel, um item por lista de preco do usuario."""
     if not request.session.get("owner_id"):
         return JsonResponse({"detail": "Nao autenticado."}, status=401)
 
+    price_lists = request.session.get("price_lists") or []
+    if not price_lists and request.session.get("price_list"):
+        price_lists = [request.session.get("price_list")]
+
+    prazo_bruto_fechada = prazo_bruto_avulsa = None
     try:
-        payload = _delivery_deadline_payload()
-        return JsonResponse(payload)
+        prazo_bruto_fechada, prazo_bruto_avulsa = _encontrar_proximo_dia_livre()
+    except Exception:
+        logger.exception("Falha ao calcular prazo bruto pela planilha de programação; usando apenas o piso mínimo.")
+
+    try:
+        if not price_lists:
+            payload = _delivery_deadline_payload(
+                prazo_bruto_fechada=prazo_bruto_fechada, prazo_bruto_avulsa=prazo_bruto_avulsa
+            )
+            return JsonResponse({"results": [payload]})
+
+        results = [
+            _delivery_deadline_payload(
+                price_list_name=pl, prazo_bruto_fechada=prazo_bruto_fechada, prazo_bruto_avulsa=prazo_bruto_avulsa
+            )
+            for pl in price_lists
+        ]
+        return JsonResponse({"results": results})
     except Exception as exc:
         return JsonResponse({"detail": f"Falha ao calcular prazo de entrega: {exc}"}, status=500)
 
@@ -1455,6 +1748,7 @@ def ploomes_create_quote(request):
     forma_pagamento_id_tipo2 = payload.get("PaymentIdTipo2")
     observacao = payload.get("observacao") or payload.get("notes") or ""
     owner_id = payload.get("OwnerId") or payload.get("owner_id") or request.session.get("owner_id")
+    is_consult_mode = bool(payload.get("is_consult_mode"))
     uf = (payload.get("uf") or "").strip().upper()
 
     if uf:
@@ -1595,7 +1889,54 @@ def ploomes_create_quote(request):
         if values and isinstance(values, list):
             quote_id = values[0].get("Id")
 
+    _send_quote_notifications_async(
+        owner_id,
+        is_consult=is_consult_mode,
+        deal_id=deal_id,
+        quote_id=quote_id,
+        total=total,
+        total_itens=total_itens,
+    )
+
     return JsonResponse({"detail": "Proposta criada com sucesso.", "quote_id": quote_id}, status=201)
+
+
+@csrf_exempt
+@require_POST
+def ploomes_resend_whatsapp(request):
+    """Reenvia a notificação de WhatsApp (template de proposta) para o usuário logado, dado um Deal."""
+    owner_id = request.session.get("owner_id")
+    if not owner_id:
+        return JsonResponse({"detail": "Não autenticado."}, status=401)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"detail": "Payload inválido."}, status=400)
+
+    deal_id = data.get("deal_id")
+    if not deal_id:
+        return JsonResponse({"detail": "deal_id é obrigatório."}, status=400)
+
+    portal_user = PortalUser.objects.filter(owner_id=owner_id).first()
+    if not portal_user or not portal_user.whatsapp:
+        return JsonResponse({"detail": "Seu usuário não possui WhatsApp cadastrado. Peça para cadastrarem em Gerenciar Usuários."}, status=400)
+
+    try:
+        pdf, key, approver, contact_name = _get_quote_document_info(deal_id)
+    except Exception as exc:
+        return JsonResponse({"detail": f"Erro ao buscar dados da proposta: {exc}"}, status=502)
+
+    aceite_link = "https://documents.ploomes.com/?k={}&entity=quote".format(key) if key else None
+    data_pedido = timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M")
+    body_params = [
+        aceite_link or "Aguardando aprovação do pedido",
+        pdf or "Documento ainda não disponível",
+        data_pedido,
+    ]
+    _send_whatsapp_template(portal_user.whatsapp, header_text=contact_name or portal_user.name, body_params=body_params)
+
+    return JsonResponse({"detail": "Mensagem reenviada via WhatsApp."})
 
 
 @csrf_exempt
@@ -2403,9 +2744,12 @@ def ploomes_create_user_access(request):
     ploomes_user_id = data.get("ploomes_user_id")
     login = data.get("login")
     name = data.get("name")
+    email = (data.get("email") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    whatsapp = (data.get("whatsapp") or "").strip()
     password = data.get("password")
     price_lists = data.get("price_lists") or []
-    
+
     if not ploomes_user_id or not name or not password:
         return JsonResponse({"detail": "ploomes_user_id, name e password são obrigatórios."}, status=400)
     
@@ -2440,6 +2784,9 @@ def ploomes_create_user_access(request):
             owner_id=ploomes_user_id,
             login=login,
             name=name,
+            email=email,
+            phone=phone,
+            whatsapp=whatsapp,
             price_list=price_lists[0] if price_lists else None,
             password=password,
         )
@@ -2458,6 +2805,9 @@ def ploomes_create_user_access(request):
                 "owner_id": portal_user.owner_id,
                 "login": portal_user.login,
                 "name": portal_user.name,
+                "email": portal_user.email,
+                "phone": portal_user.phone,
+                "whatsapp": portal_user.whatsapp,
                 "price_lists": list(portal_user.price_lists.values_list("name", flat=True)),
             }
         }, status=201)
@@ -2487,6 +2837,9 @@ def ploomes_update_user_access(request):
 
     ploomes_user_id = data.get("ploomes_user_id")
     login = data.get("login")
+    email = data.get("email")
+    phone = data.get("phone")
+    whatsapp = data.get("whatsapp")
     password = data.get("password")
     price_lists = data.get("price_lists")
 
@@ -2505,6 +2858,15 @@ def ploomes_update_user_access(request):
         if PortalUser.objects.filter(login=login).exclude(id=portal_user.id).exists():
             return JsonResponse({"detail": "Login ja esta em uso."}, status=400)
         portal_user.login = login
+
+    if email is not None:
+        portal_user.email = email.strip()
+
+    if phone is not None:
+        portal_user.phone = phone.strip()
+
+    if whatsapp is not None:
+        portal_user.whatsapp = whatsapp.strip()
 
     if password:
         if len(password) < 6:
@@ -2534,6 +2896,9 @@ def ploomes_update_user_access(request):
             "owner_id": portal_user.owner_id,
             "login": portal_user.login,
             "name": portal_user.name,
+            "email": portal_user.email,
+            "phone": portal_user.phone,
+            "whatsapp": portal_user.whatsapp,
             "price_lists": list(portal_user.price_lists.values_list("name", flat=True)),
         }
     })

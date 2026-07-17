@@ -2132,6 +2132,7 @@
         uf: ufValue,
         observacao: payload.notes,
         PersonId: isRevision ? revisionPersonId : null,
+        is_consult_mode: isConsultMode,
         products,
       };
 
@@ -2153,7 +2154,12 @@
           resetSaveBtn();
           return;
         }
-        showToast(isRevision ? "Revisão feita com sucesso." : "Ordem e proposta criadas com sucesso.", "success");
+        showToast(
+          isRevision
+            ? "Revisão feita com sucesso."
+            : "Ordem e proposta criadas com sucesso. O documento será enviado ao seu e-mail e WhatsApp em instantes.",
+          "success"
+        );
         try {
           await clearCartItems();
           updateCartBadge([]);

@@ -15,12 +15,7 @@
     aceiteExterno: document.getElementById("aceiteExternoFilter"),
     aprovacaoDesconto: document.getElementById("aprovacaoDescontoFilter"),
     revenda: document.getElementById("revendaFilter"),
-    deliveryDeadlineStatusAvulsa: document.getElementById("deliveryDeadlineStatusAvulsa"),
-    deliveryDeadlineStatusFechada: document.getElementById("deliveryDeadlineStatusFechada"),
-    deliveryDeadlineAvulsa: document.getElementById("deliveryDeadlineAvulsa"),
-    deliveryDeadlineFechada: document.getElementById("deliveryDeadlineFechada"),
-    deliveryDeadlineAvulsaDays: document.getElementById("deliveryDeadlineAvulsaDays"),
-    deliveryDeadlineFechadaDays: document.getElementById("deliveryDeadlineFechadaDays"),
+    deliveryDeadlineContainer: document.getElementById("deliveryDeadlineContainer"),
     // totalDeals: document.getElementById("metricTotal"),
     // totalAmount: document.getElementById("metricAmount"),
     openDeals: document.getElementById("metricOpen"),
@@ -61,77 +56,56 @@
     return dt.toLocaleDateString("pt-BR");
   }
 
+  function renderDeliveryDeadlines(results) {
+    if (!elements.deliveryDeadlineContainer) return;
+    elements.deliveryDeadlineContainer.innerHTML = "";
+
+    if (!results || !results.length) {
+      elements.deliveryDeadlineContainer.innerHTML =
+        '<div class="row g-3 mb-3"><div class="col-12 text-secondary">Nenhuma lista de preço associada ao usuário.</div></div>';
+      return;
+    }
+
+    const row = document.createElement("div");
+    row.className = "row g-3 mb-3";
+
+    results.forEach((item) => {
+      const prazoAvulsa = formatIsoDateToBr(item.prazo_carreta_avulsa);
+      const prazoFechada = formatIsoDateToBr(item.prazo_carga_fechada);
+      const label = item.price_list || "Geral";
+
+      const col = document.createElement("div");
+      col.className = "col-12 col-md-4";
+      col.innerHTML = `
+        <div class="card metric-card p-3 h-100">
+          <h6 class="mb-2">${label}</h6>
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="small text-secondary">Carretas avulsas</span>
+            <span class="small">${prazoAvulsa} <span class="text-secondary">(${item.dias_corridos_avulsa}d)</span></span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-1">
+            <span class="small text-secondary">Cargas fechadas</span>
+            <span class="small">${prazoFechada} <span class="text-secondary">(${item.dias_corridos_fechada}d)</span></span>
+          </div>
+        </div>
+      `;
+      row.appendChild(col);
+    });
+
+    elements.deliveryDeadlineContainer.appendChild(row);
+  }
+
   async function fetchDeliveryDeadline() {
-    if (!elements.deliveryDeadlineStatusAvulsa || !elements.deliveryDeadlineStatusFechada) return;
-    elements.deliveryDeadlineStatusAvulsa.textContent = "Carregando";
-    elements.deliveryDeadlineStatusAvulsa.className = "badge bg-secondary status-chip";
-    elements.deliveryDeadlineStatusFechada.textContent = "Carregando";
-    elements.deliveryDeadlineStatusFechada.className = "badge bg-secondary status-chip";
+    if (!elements.deliveryDeadlineContainer) return;
     try {
       const response = await fetch("/api/programacao/prazo-entrega/", { headers: { Accept: "application/json" } });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.detail || `Erro ${response.status}`);
-
-      const prazoAvulsa = formatIsoDateToBr(data.prazo_carreta_avulsa);
-      const prazoFechada = formatIsoDateToBr(data.prazo_carga_fechada);
-
-      if (elements.deliveryDeadlineAvulsa) {
-        elements.deliveryDeadlineAvulsa.textContent = `Para carretas avulsas, o prazo de entrega é: ${prazoAvulsa}.`;
-      }
-      if (elements.deliveryDeadlineFechada) {
-        elements.deliveryDeadlineFechada.textContent = `Para cargas fechadas, o prazo de entrega é: ${prazoFechada}.`;
-      }
-      elements.deliveryDeadlineStatusAvulsa.textContent = "Atualizado";
-      elements.deliveryDeadlineStatusAvulsa.className = "badge bg-success status-chip";
-      elements.deliveryDeadlineStatusFechada.textContent = "Atualizado";
-      elements.deliveryDeadlineStatusFechada.className = "badge bg-success status-chip";
+      renderDeliveryDeadlines(data.results);
     } catch (error) {
-      if (elements.deliveryDeadlineAvulsa) {
-        elements.deliveryDeadlineAvulsa.textContent = "Para carretas avulsas, o prazo de entrega é: indisponível.";
-      }
-      if (elements.deliveryDeadlineFechada) {
-        elements.deliveryDeadlineFechada.textContent = "Para cargas fechadas, o prazo de entrega é: indisponível.";
-      }
-      elements.deliveryDeadlineStatusAvulsa.textContent = "Erro";
-      elements.deliveryDeadlineStatusAvulsa.className = "badge bg-danger status-chip";
-      elements.deliveryDeadlineStatusFechada.textContent = "Erro";
-      elements.deliveryDeadlineStatusFechada.className = "badge bg-danger status-chip";
+      elements.deliveryDeadlineContainer.innerHTML =
+        '<div class="row g-3 mb-3"><div class="col-12 text-danger">Falha ao carregar prazos de entrega.</div></div>';
       console.error("Falha ao carregar prazo de entrega:", error);
-    }
-  }
-
-  function deadlineDaysFromPtBrText(text) {
-    const match = (text || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
-    if (!match) return null;
-
-    const [, day, month, year] = match;
-    const deadline = new Date(Number(year), Number(month) - 1, Number(day));
-    if (Number.isNaN(deadline.getTime())) return null;
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffMs = deadline.getTime() - today.getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-      return `${Math.abs(diffDays)} dia(s) em atraso`;
-    }
-    return `${diffDays} dia(s)`;
-  }
-
-  function syncDeadlineDaysLabels() {
-    if (elements.deliveryDeadlineAvulsaDays) {
-      const avulsaDays = deadlineDaysFromPtBrText(elements.deliveryDeadlineAvulsa?.textContent);
-      elements.deliveryDeadlineAvulsaDays.textContent = avulsaDays
-        ? `Prazo em dias: ${avulsaDays}.`
-        : "Prazo em dias: indisponível.";
-    }
-
-    if (elements.deliveryDeadlineFechadaDays) {
-      const fechadaDays = deadlineDaysFromPtBrText(elements.deliveryDeadlineFechada?.textContent);
-      elements.deliveryDeadlineFechadaDays.textContent = fechadaDays
-        ? `Prazo em dias: ${fechadaDays}.`
-        : "Prazo em dias: indisponível.";
     }
   }
 
@@ -311,6 +285,7 @@
             <div class="d-flex gap-1 flex-wrap align-items-center deal-actions">
               ${botaoAceiteHTML}
               <a class="btn btn-sm btn-outline-light" href="${linkPDF}" target="_blank">PDF</a>
+              <button class="btn btn-sm btn-outline-success btn-resend-whatsapp" data-deal-id="${dealId}">Reenviar WhatsApp</button>
               ${showReview ? `<button class="btn btn-sm btn-outline-warning btn-review" data-quote-id="${deal.Id || deal.QuoteId || dealId}" data-company-id="${companyId || ""}" data-contact-id="${contactId || ""}" data-contact-name="${personName || contactName}" data-company-name="${contactName}">Revisar</button>` : ""}
               ${showLose ? `<button class="btn btn-sm btn-outline-danger btn-lose" data-deal-id="${dealId}">Perder</button>` : ""}
               ${showMirror ? `<button class="btn btn-sm btn-outline-info text-light btn-mirror" data-deal-id="${dealId}">Espelho</button>` : ""}
@@ -584,6 +559,30 @@
           mirrorBtn.textContent = 'Espelho';
         });
     }
+
+    const resendBtn = e.target.closest(".btn-resend-whatsapp");
+    if (resendBtn) {
+      const dealId = resendBtn.dataset.dealId;
+      if (!dealId) return;
+      resendBtn.disabled = true;
+      const originalText = resendBtn.textContent;
+      resendBtn.textContent = "Enviando...";
+      fetch("/api/ploomes/quotes/resend-whatsapp/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: dealId }),
+      })
+        .then((res) => res.json().then((body) => ({ ok: res.ok, body })))
+        .then(({ ok, body }) => {
+          const detail = body?.detail || (ok ? "Mensagem reenviada via WhatsApp." : "Falha ao reenviar WhatsApp.");
+          showToast(detail, ok ? "success" : "danger");
+        })
+        .catch((err) => showToast(`Falha ao reenviar WhatsApp: ${err.message}`, "danger"))
+        .finally(() => {
+          resendBtn.disabled = false;
+          resendBtn.textContent = originalText;
+        });
+    }
   });
 
   if (elements.loseDealConfirm && loseDealBootstrapModal) {
@@ -681,8 +680,7 @@
 
   function initHomePage() {
     if (!elements.login || !elements.loadBtn || !elements.cards) return;
-    fetchDeliveryDeadline()
-      .finally(syncDeadlineDaysLabels); // nao bloqueia renderizacao do restante da pagina
+    fetchDeliveryDeadline(); // nao bloqueia renderizacao do restante da pagina
     if (elements.login && elements.login.value) {
       resetAndFetch();
     }

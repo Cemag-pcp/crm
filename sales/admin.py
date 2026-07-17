@@ -20,8 +20,8 @@ class VendorAdmin(admin.ModelAdmin):
 
 @admin.register(PortalUser)
 class PortalUserAdmin(admin.ModelAdmin):
-    list_display = ("login", "name", "owner_id", "price_list", "price_lists_display", "created_at")
-    search_fields = ("login", "name", "owner_id", "price_list", "price_lists__name")
+    list_display = ("login", "name", "email", "phone", "whatsapp", "owner_id", "price_list", "price_lists_display", "created_at")
+    search_fields = ("login", "name", "email", "phone", "whatsapp", "owner_id", "price_list", "price_lists__name")
     list_filter = ("price_list", "price_lists")
 
     @admin.display(description="Listas de Preco")

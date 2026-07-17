@@ -75,7 +75,7 @@
                     </thead>
                     <tbody>
                         {% for user in users %}
-                        <tr id="user-row-{{ user.id }}" data-login="{{ user.portal_user.login|default:'' }}" data-price-lists="{{ user.price_lists_display|default:'' }}">
+                        <tr id="user-row-{{ user.id }}" data-login="{{ user.portal_user.login|default:'' }}" data-email="{{ user.portal_user.email|default:'' }}" data-phone="{{ user.portal_user.phone|default:'' }}" data-whatsapp="{{ user.portal_user.whatsapp|default:'' }}" data-price-lists="{{ user.price_lists_display|default:'' }}">
                             <td><strong>{{ user.id }}</strong></td>
                             <td>{{ user.name }}</td>
                             <td>{{ user.profileid }}</td>
@@ -139,6 +139,7 @@
 
 {% endblock %}
 {% block body_end %}
+<script defer src="{% static 'js/alerts.js' %}"></script>
 <!-- Modal para criar acesso -->
 <div class="modal fade" id="createAccessModal" tabindex="-1" aria-labelledby="createAccessModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -160,6 +161,22 @@
                         <label for="loginInput" class="form-label">Login <small class="text-muted">(opcional)</small></label>
                         <input type="text" class="form-control" id="loginInput" placeholder="Deixe em branco para usar o nome">
                         <small class="form-text text-muted">Se não preenchido, será gerado automaticamente a partir do nome.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="emailInput" class="form-label">E-mail <small class="text-muted">(opcional)</small></label>
+                        <input type="email" class="form-control" id="emailInput" placeholder="email@exemplo.com">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="phoneInput" class="form-label">Telefone <small class="text-muted">(opcional)</small></label>
+                        <input type="text" class="form-control" id="phoneInput" placeholder="(85) 99999-9999">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="whatsappInput" class="form-label">WhatsApp <small class="text-muted">(opcional)</small></label>
+                        <input type="text" class="form-control" id="whatsappInput" placeholder="5511999999999">
+                        <small class="form-text text-muted">Informe com DDI e DDD, apenas números.</small>
                     </div>
 
                     <div class="mb-3">
@@ -215,7 +232,23 @@
                         <label for="editLoginInput" class="form-label">Login</label>
                         <input type="text" class="form-control" id="editLoginInput" required>
                     </div>
-                    
+
+                    <div class="mb-3">
+                        <label for="editEmailInput" class="form-label">E-mail <small class="text-muted">(opcional)</small></label>
+                        <input type="email" class="form-control" id="editEmailInput" placeholder="email@exemplo.com">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editPhoneInput" class="form-label">Telefone <small class="text-muted">(opcional)</small></label>
+                        <input type="text" class="form-control" id="editPhoneInput" placeholder="(85) 99999-9999">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editWhatsappInput" class="form-label">WhatsApp <small class="text-muted">(opcional)</small></label>
+                        <input type="text" class="form-control" id="editWhatsappInput" placeholder="5511999999999">
+                        <small class="form-text text-muted">Informe com DDI e DDD, apenas números.</small>
+                    </div>
+
                     <div class="mb-3">
                         <label for="editPasswordInput" class="form-label">Nova senha <small class="text-muted">(opcional)</small></label>
                         <div class="input-group">
@@ -261,6 +294,9 @@
         document.getElementById('ploomes_user_id').value = userId;
         document.getElementById('userName').value = userName;
         document.getElementById('loginInput').value = '';
+        document.getElementById('emailInput').value = '';
+        document.getElementById('phoneInput').value = '';
+        document.getElementById('whatsappInput').value = '';
         document.getElementById('passwordInput').value = '';
         const priceListsInput = document.getElementById('priceListsInput');
         if (priceListsInput) {
@@ -302,12 +338,18 @@
     function editUserAccess(userId, userName) {
         const row = document.getElementById('user-row-' + userId);
         const login = row?.dataset?.login || '';
+        const email = row?.dataset?.email || '';
+        const phone = row?.dataset?.phone || '';
+        const whatsapp = row?.dataset?.whatsapp || '';
         const priceListsText = row?.dataset?.priceLists || '';
         const priceLists = priceListsText ? priceListsText.split(',').map((item) => item.trim()).filter(Boolean) : [];
 
         document.getElementById('edit_ploomes_user_id').value = userId;
         document.getElementById('editUserName').value = userName;
         document.getElementById('editLoginInput').value = login;
+        document.getElementById('editEmailInput').value = email;
+        document.getElementById('editPhoneInput').value = phone;
+        document.getElementById('editWhatsappInput').value = whatsapp;
         document.getElementById('editPasswordInput').value = '';
 
         const priceListsInput = document.getElementById('editPriceListsInput');
@@ -326,6 +368,9 @@
         const userId = document.getElementById('ploomes_user_id').value;
         const userName = document.getElementById('userName').value;
         const login = document.getElementById('loginInput').value;
+        const email = document.getElementById('emailInput').value;
+        const phone = document.getElementById('phoneInput').value;
+        const whatsapp = document.getElementById('whatsappInput').value;
         const password = document.getElementById('passwordInput').value;
         const priceListsInput = document.getElementById('priceListsInput');
         const priceLists = priceListsInput
@@ -355,6 +400,9 @@
                 ploomes_user_id: parseInt(userId),
                 name: userName,
                 login: login || null,
+                email: email || null,
+                phone: phone || null,
+                whatsapp: whatsapp || null,
                 password: password,
                 price_lists: priceLists,
             })
@@ -370,7 +418,7 @@
             if (data.detail) {
                 if (response.ok) {
                     showSuccessMessage(data.detail);
-                    updateUserRow(userId);
+                    updateUserRow(userId, data.portal_user, true);
                     bootstrap.Modal.getInstance(document.getElementById('createAccessModal')).hide();
                 } else {
                     showErrorMessage(data.detail);
@@ -387,6 +435,9 @@
     function confirmEditUserAccess() {
         const userId = document.getElementById('edit_ploomes_user_id').value;
         const login = document.getElementById('editLoginInput').value;
+        const email = document.getElementById('editEmailInput').value;
+        const phone = document.getElementById('editPhoneInput').value;
+        const whatsapp = document.getElementById('editWhatsappInput').value;
         const password = document.getElementById('editPasswordInput').value;
         const priceListsInput = document.getElementById('editPriceListsInput');
         const priceLists = priceListsInput
@@ -418,6 +469,9 @@
             body: JSON.stringify({
                 ploomes_user_id: parseInt(userId),
                 login: login,
+                email: email,
+                phone: phone,
+                whatsapp: whatsapp,
                 password: password || null,
                 price_lists: priceLists,
             })
@@ -433,7 +487,7 @@
             if (data.detail) {
                 if (response.ok) {
                     showSuccessMessage(data.detail);
-                    updateUserRow(userId);
+                    updateUserRow(userId, data.portal_user, false);
                     bootstrap.Modal.getInstance(document.getElementById('editAccessModal')).hide();
                 } else {
                     showErrorMessage(data.detail);
@@ -447,39 +501,54 @@
         });
     }
 
-    function updateUserRow(userId) {
+    function updateUserRow(userId, portalUser, isNewAccess) {
         const row = document.getElementById('user-row-' + userId);
-        if (row) {
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
+        if (!row || !portalUser) return;
+
+        const priceListsText = (portalUser.price_lists || []).join(', ');
+        row.dataset.login = portalUser.login || '';
+        row.dataset.email = portalUser.email || '';
+        row.dataset.phone = portalUser.phone || '';
+        row.dataset.whatsapp = portalUser.whatsapp || '';
+        row.dataset.priceLists = priceListsText;
+
+        const cells = row.children;
+        const userName = (cells[1]?.textContent || '').trim();
+
+        // Coluna "Acesso no Sistema"
+        cells[4].innerHTML = `
+            <div>
+                <span class="badge bg-success mb-2">Sim</span>
+                <br>
+                <small class="text-muted">Login: <strong>${portalUser.login}</strong></small>
+            </div>
+        `;
+
+        // Coluna "Lista de Preço"
+        cells[5].innerHTML = `<small class="text-muted">${priceListsText || '-'}</small>`;
+
+        // Coluna "Ação" - só muda de botao quando o acesso acabou de ser criado
+        if (isNewAccess) {
+            cells[6].innerHTML = `
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-secondary" disabled>
+                        <i class="bi bi-check-circle"></i> Acesso Existente
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            onclick="editUserAccess(${userId}, '${userName}')">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                </div>
+            `;
         }
     }
 
     function showSuccessMessage(message) {
-        const alertHtml = `
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <strong>Sucesso!</strong> ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        `;
-        const container = document.querySelector('main');
-        const newDiv = document.createElement('div');
-        newDiv.innerHTML = alertHtml;
-        container.insertBefore(newDiv.firstChild, container.firstChild.nextSibling.nextSibling);
+        showToast(message, 'success');
     }
 
     function showErrorMessage(message) {
-        const alertHtml = `
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <strong>Erro!</strong> ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        `;
-        const container = document.querySelector('main');
-        const newDiv = document.createElement('div');
-        newDiv.innerHTML = alertHtml;
-        container.insertBefore(newDiv.firstChild, container.firstChild.nextSibling.nextSibling);
+        showToast(message, 'danger');
     }
 
     function getCookie(name) {
