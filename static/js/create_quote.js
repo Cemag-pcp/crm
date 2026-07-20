@@ -347,7 +347,7 @@
         final_price: unit,
         favorite: false,
         quantity: qty,
-      });
+      }, { skipRefresh: true });
     });
     
     // Aguardar todas as adições ao carrinho em paralelo
@@ -1559,7 +1559,8 @@
     }
   }
 
-  async function addToCart(item) {
+  async function addToCart(item, options = {}) {
+    const { skipRefresh = false } = options;
     try {
       const res = await fetch("/api/cart/add/", {
         method: "POST",
@@ -1568,7 +1569,9 @@
       });
       if (!res.ok) throw new Error(`Erro ${res.status}`);
       showToast("Item adicionado no carrinho de compras.", 'success');
-      fetchCartItems(false);
+      if (!skipRefresh) {
+        fetchCartItems(false);
+      }
     } catch (err) {
       showToast(`Falha ao adicionar no carrinho: ${err.message}`, "danger");
     }
@@ -2259,8 +2262,15 @@
               confirmRevendaIdHidden.value = quote.ContactId;
               suggestionMap.set(quote.ContactName, quote.ContactId);
 
+              // fetchContatos e fetchPaymentOptions só dependem do ContactId (já conhecido aqui),
+              // não uma da outra — rodam em paralelo em vez de sequencial.
               const ownerId = getOwnerId();
-              if (ownerId) await fetchContatos(quote.ContactId, ownerId, { showDropdown: false });
+              const contatosPromise = ownerId
+                ? fetchContatos(quote.ContactId, ownerId, { showDropdown: false })
+                : Promise.resolve();
+              const paymentOptionsPromise = fetchPaymentOptions(quote.ContactId);
+              await Promise.all([contatosPromise, paymentOptionsPromise]);
+
               confirmContatoInput.disabled = false;
               if (!isRevision) {
                 renderContatoDropdownItems(
@@ -2276,11 +2286,8 @@
                 clearContatoDropdown(confirmContatoDropdown);
               }
 
-              await fetchPaymentOptions(quote.ContactId);
-              
-              // Aguarda um pouco para garantir que as opções foram renderizadas
-              await new Promise(resolve => setTimeout(resolve, 100));
-              
+              // fetchPaymentOptions já popula paymentSelect.innerHTML de forma síncrona antes de
+              // resolver, então a cópia abaixo pode acontecer direto (sem espera artificial).
               confirmPaymentSelect.innerHTML = paymentSelect.innerHTML;
               confirmPaymentSelect.disabled = false;
 

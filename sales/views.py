@@ -174,8 +174,10 @@ def _send_quote_notifications(owner_id, *, is_consult, deal_id, quote_id, total,
 
     if portal_user.whatsapp:
         data_pedido = timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M")
+        # Sem "https://" no link enviado ao WhatsApp (só nesse canal; e-mail mantém a URL completa acima).
+        aceite_link_whatsapp = aceite_link.replace("https://", "") if aceite_link else None
         body_params = [
-            aceite_link or "Aguardando aprovação do pedido",
+            aceite_link_whatsapp or "Aguardando aprovação do pedido",
             pdf or "Documento ainda não disponível",
             data_pedido,
         ]
@@ -1927,7 +1929,8 @@ def ploomes_resend_whatsapp(request):
     except Exception as exc:
         return JsonResponse({"detail": f"Erro ao buscar dados da proposta: {exc}"}, status=502)
 
-    aceite_link = "https://documents.ploomes.com/?k={}&entity=quote".format(key) if key else None
+    # Sem "https://" no link enviado ao WhatsApp.
+    aceite_link = "documents.ploomes.com/?k={}&entity=quote".format(key) if key else None
     data_pedido = timezone.localtime(timezone.now()).strftime("%d/%m/%Y %H:%M")
     body_params = [
         aceite_link or "Aguardando aprovação do pedido",

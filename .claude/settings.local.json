@@ -49,7 +49,10 @@
       "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -m pip install gspread pandas)",
       "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -c \"import gspread; print\\('gspread OK'\\)\")",
       "Bash(\"c:/Users/pcp2/vendas/vendas-cemag/venv/Scripts/python.exe\" -c \"import pandas; print\\('pandas OK'\\)\")",
-      "Bash(node --check static/js/create_quote.js)"
+      "Bash(node --check static/js/create_quote.js)",
+      "Bash(curl -s -o /dev/null -D - -H \"Accept-Encoding: gzip\" http://127.0.0.1:8000/json/precos/)",
+      "Bash(curl -s -D - -o /tmp/precos.out -H \"Accept-Encoding: gzip\" http://127.0.0.1:8000/json/precos/)",
+      "Bash(curl -s http://127.0.0.1:8000/static/js/create_quote.js -o /tmp/served_cq.js)"
     ]
   }
 }
